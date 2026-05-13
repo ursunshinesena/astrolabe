@@ -33,3 +33,6 @@ Thumbs.db
 
 # Turbo cache
 .turbo/
+
+# Local scripts (may contain secrets)
+scripts/

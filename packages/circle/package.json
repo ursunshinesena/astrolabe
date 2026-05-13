@@ -21,9 +21,11 @@
     "@circle-fin/adapter-viem-v2": "^1.0.0",
     "@circle-fin/app-kit": "^1.0.0",
     "@circle-fin/developer-controlled-wallets": "^3.0.0",
+    "neverthrow": "^8.1.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
   }

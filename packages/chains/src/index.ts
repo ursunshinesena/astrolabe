@@ -41,12 +41,11 @@ export const CIRCLE_CHAIN_NAMES = {
   ARC_TESTNET: "Arc_Testnet",
 } as const satisfies Record<SupportedChainKey, string>;
 
-// USDC contract addresses (6 decimals) — verify via Circle MCP before use
-// Arc address confirmed from use-arc skill; others need MCP verification
+// USDC contract addresses (6 decimals) — source: developers.circle.com/stablecoins/usdc-contract-addresses
 export const USDC_ADDRESSES = {
-  ETHEREUM_SEPOLIA: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-  AVALANCHE_FUJI: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-  BASE_SEPOLIA: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+  ETHEREUM_SEPOLIA: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" as `0x${string}`,
+  AVALANCHE_FUJI: "0x5425890298aed601595a70AB815c96711a31Bc65" as `0x${string}`,
+  BASE_SEPOLIA: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as `0x${string}`,
   ARC_TESTNET: "0x3600000000000000000000000000000000000000" as `0x${string}`,
 } satisfies Record<SupportedChainKey, `0x${string}`>;
 

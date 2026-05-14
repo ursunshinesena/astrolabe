@@ -36,3 +36,4 @@ Thumbs.db
 
 # Local scripts (may contain secrets)
 scripts/
+packages/circle/*.mjs

@@ -18,6 +18,7 @@
   "dependencies": {
     "@agora/chains": "workspace:*",
     "@agora/types": "workspace:*",
+    "viem": "^2.21.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

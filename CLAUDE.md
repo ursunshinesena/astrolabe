@@ -84,7 +84,7 @@ Aşağıdaki bilgiler **eskimiş olabilir** — contract addresses, SDK signatur
 | LLM | Anthropic Claude API (`claude-sonnet-4-6`) | Tool use + structured output |
 | Wallet | Circle Programmable Wallets (developer-controlled) | UX puanı, sponsor entegrasyonu |
 | Cross-chain | **CCTP V2** (Bridge Kit SDK) + Arc App Kit | V1 KULLANMA — phase-out 31 Temmuz 2026 |
-| DEX aggregation | 0x Swap API (her EVM zinciri için) | Tek API, çoklu zincir |
+| DEX aggregation | Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` | Testnet'te gerçek quote, 0x yok |
 | Validation | zod | Runtime schema |
 | Linting | biome | tek tool, hızlı |
 | Hosting | Vercel (web) + Railway (api) | Hackathon için yeterli |
@@ -96,8 +96,8 @@ Aşağıdaki bilgiler **eskimiş olabilir** — contract addresses, SDK signatur
 | Zincir | Notlar |
 |---|---|
 | Ethereum Sepolia | Ana referans zincir |
-| Avalanche Fuji | Hızlı, ucuz, test için ideal |
 | Base Sepolia | L2, demo'da CCTP Fast'ı gösterir |
+| Arbitrum Sepolia | CCTP V2 + Uniswap V3 deploy'lu, Fuji'nin yerini aldı |
 | **Arc Testnet** | USDC-as-gas, sub-second finality, agentic economy primitives |
 
 Faucet: https://faucet.circle.com
@@ -117,7 +117,7 @@ agora-agent/
 │   ├── chains/           # Chain configs, RPC clients, types
 │   ├── contracts/        # Foundry project: Hook contract + interfaces
 │   ├── circle/           # Circle SDK wrappers (Wallets, CCTP, App Kit)
-│   ├── pricing/          # 0x/DEX aggregator wrappers
+│   ├── pricing/          # DEX quoter wrappers (Uniswap V3 QuoterV2 + Arc App Kit)
 │   └── types/            # Ortak TS types (Intent, Route, ExecutionResult)
 ├── docs/
 │   ├── architecture.md   # Mimari kararlar
@@ -196,6 +196,7 @@ agora-agent/
 - **Küçük, atomik commit'ler.** Bir commit bir mantıksal değişiklik.
 - **Conventional commits** format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
 - Her PR ≤ 400 satır değişiklik. Daha büyükse böl.
+- **Commit mesajlarında Claude attribution YOK.** "Co-Authored-By: Claude", "Generated with Claude", "🤖" veya benzeri işaret hiçbir commit'e girmez. Bu Sena'nın projesi.
 
 ### Test
 - Her yeni fonksiyon için minimum 1 happy path testi.
@@ -222,13 +223,10 @@ CIRCLE_API_KEY=
 CIRCLE_ENTITY_SECRET=
 CIRCLE_WALLET_SET_ID=
 
-# 0x
-ZEROX_API_KEY=
-
 # RPC (testnet)
 ETH_SEPOLIA_RPC_URL=
-AVAX_FUJI_RPC_URL=
 BASE_SEPOLIA_RPC_URL=
+ARB_SEPOLIA_RPC_URL=
 ARC_TESTNET_RPC_URL=https://rpc.arc.network/testnet
 
 # Deployment
@@ -279,9 +277,9 @@ Her milestone ayrı bir prompt dosyasında detaylı tanımlı (`docs/milestones/
 |---|---|---|---|
 | M0 | Monorepo + tooling + CI | Gün 1 | `chore/m0-setup` |
 | M1 | Circle Wallets + first CCTP transfer (Sepolia ↔ Base) | Gün 2-3 | `feat/m1-cctp-basic` |
-| M2 | Pricing + gas + routing engine v1 (2 zincir) | Gün 4-5 | `feat/m2-routing` |
+| M2 | Pricing + gas + routing engine v1 (3 zincir: Sepolia + Base + Arc) | Gün 4-5 | `feat/m2-routing` |
 | M3 | LLM intent parser + frontend chat UX | Gün 6-7 | `feat/m3-agent-ui` |
-| M4 | Arc + Avalanche genişletme (4 zincir) | Gün 8 | `feat/m4-multichain` |
+| M4 | Arbitrum Sepolia entegrasyonu (4 zincir) | Gün 8 | `feat/m4-multichain` |
 | M5 | CCTP V2 Hooks ile atomic execution | Gün 9 | `feat/m5-hooks` |
 | M6 | Güvenlik, error handling, edge cases | Gün 10 | `chore/m6-hardening` |
 | M7 | Differentiation feature (Telegram bot veya limit order) | Gün 11 | `feat/m7-bonus` |

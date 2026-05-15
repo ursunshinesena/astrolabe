@@ -18,6 +18,8 @@
   "dependencies": {
     "@agora/chains": "workspace:*",
     "@agora/types": "workspace:*",
+    "@circle-fin/adapter-circle-wallets": "^1.0.0",
+    "@circle-fin/app-kit": "^1.0.0",
     "viem": "^2.21.0",
     "zod": "^3.24.0"
   },

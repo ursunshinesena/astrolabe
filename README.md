@@ -39,7 +39,7 @@ pnpm --filter @agora/web dev
 ## Testing
 
 ```bash
-# TypeScript unit tests
+# Unit tests (no network, mocked — always runnable)
 pnpm test
 
 # Type checking
@@ -47,7 +47,12 @@ pnpm type-check
 
 # Smart contract tests
 cd packages/contracts && forge test
+
+# Integration tests (hit real testnet RPC — requires env vars)
+ETH_SEPOLIA_RPC_URL=https://... BASE_SEPOLIA_RPC_URL=https://... pnpm --filter @agora/pricing test
 ```
+
+Integration tests are skipped automatically when RPC env vars are absent, so `pnpm test` is always safe to run in CI.
 
 ## Architecture
 
@@ -55,11 +60,12 @@ See [docs/architecture.md](docs/architecture.md).
 
 ## Supported Chains (testnet)
 
-| Chain | CCTP Domain |
-|---|---|
-| Ethereum Sepolia | 0 |
-| Avalanche Fuji | 1 |
-| Base Sepolia | 6 |
-| Arc Testnet | 26 |
+| Chain | CCTP Domain | DEX | Status |
+|---|---|---|---|
+| Ethereum Sepolia | 0 | Uniswap V3 | ✅ M1 + M2 |
+| Base Sepolia | 6 | Uniswap V3 | ✅ M1 + M2 |
+| Arc Testnet | 26 | App Kit swap | ✅ M2 |
+| Arbitrum Sepolia | 3 | Uniswap V3 | 🔜 M4 |
 
-Faucet: https://faucet.circle.com
+Faucet: https://faucet.circle.com  
+Arc explorer: https://testnet.arcscan.app

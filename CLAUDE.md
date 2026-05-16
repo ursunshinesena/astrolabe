@@ -288,6 +288,18 @@ Her milestone ayrı bir prompt dosyasında detaylı tanımlı (`docs/milestones/
 
 Her milestone için ayrı prompt dosyası `prompts/M{N}-{name}.md` altında bulunur.
 
+### M2 Bekleyen Görev — Integration Test
+
+**Dosya:** `packages/pricing/src/__tests__/integration.test.ts`
+**Durum:** Yazıldı, skip mekanizması çalışıyor — ama henüz gerçek RPC key ile çalıştırılmadı.
+
+Key bulununca şunu çalıştır:
+```bash
+ETH_SEPOLIA_RPC_URL=... BASE_SEPOLIA_RPC_URL=... pnpm --filter @agora/pricing test
+```
+
+3 test geçince bu notu silebilirsin.
+
 ---
 
 ## 11. CLAUDE CODE'A ÖZEL DAVRANIŞ KURALLARI

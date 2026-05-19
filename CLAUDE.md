@@ -81,7 +81,7 @@ Aşağıdaki bilgiler **eskimiş olabilir** — contract addresses, SDK signatur
 | Smart contracts | Foundry (Solidity 0.8.24+) | Test ve fork desteği |
 | Backend | Hono (Node 20+, TypeScript strict) | Hızlı, edge-ready |
 | Frontend | Next.js 15 (App Router) + Tailwind + shadcn/ui | Hızlı geliştirme, modern UX |
-| LLM | Anthropic Claude API (`claude-sonnet-4-6`) | Tool use + structured output |
+| LLM | Gemini Flash (Google AI Studio) | Tool use + structured output |
 | Wallet | Circle Programmable Wallets (developer-controlled) | UX puanı, sponsor entegrasyonu |
 | Cross-chain | **CCTP V2** (Bridge Kit SDK) + Arc App Kit | V1 KULLANMA — phase-out 31 Temmuz 2026 |
 | DEX aggregation | Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` | Testnet'te gerçek quote, 0x yok |
@@ -287,18 +287,6 @@ Her milestone ayrı bir prompt dosyasında detaylı tanımlı (`docs/milestones/
 | M9 | Submission + buffer | Gün 14 | `release/submit` |
 
 Her milestone için ayrı prompt dosyası `prompts/M{N}-{name}.md` altında bulunur.
-
-### M2 Bekleyen Görev — Integration Test
-
-**Dosya:** `packages/pricing/src/__tests__/integration.test.ts`
-**Durum:** Yazıldı, skip mekanizması çalışıyor — ama henüz gerçek RPC key ile çalıştırılmadı.
-
-Key bulununca şunu çalıştır:
-```bash
-ETH_SEPOLIA_RPC_URL=... BASE_SEPOLIA_RPC_URL=... pnpm --filter @agora/pricing test
-```
-
-3 test geçince bu notu silebilirsin.
 
 ---
 

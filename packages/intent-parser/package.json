@@ -15,6 +15,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@google/genai": "^2.6.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

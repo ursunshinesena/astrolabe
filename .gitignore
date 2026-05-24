@@ -37,3 +37,6 @@ Thumbs.db
 # Local scripts (may contain secrets)
 scripts/
 packages/circle/*.mjs
+
+# Intent parser manual test scripts (live API calls, not for commit)
+packages/intent-parser/scripts/

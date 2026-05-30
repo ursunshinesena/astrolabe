@@ -1,6 +1,6 @@
-import { errAsync, ResultAsync } from "neverthrow";
-import { z } from "zod";
 import type { UniswapV3ChainKey } from "@agora/chains";
+import { ResultAsync, errAsync } from "neverthrow";
+import { z } from "zod";
 import { getArcQuote } from "./quoters/arc.js";
 import { getUniswapV3Quote } from "./quoters/uniswap-v3.js";
 import { QuoteError, type SwapQuote } from "./types.js";
@@ -45,8 +45,8 @@ export function getQuote(params: GetQuoteParams): ResultAsync<SwapQuote, QuoteEr
   }
 
   if (chainKey === "ARC_TESTNET") {
-    const apiKey = process.env["CIRCLE_API_KEY"];
-    const entitySecret = process.env["CIRCLE_ENTITY_SECRET"];
+    const apiKey = process.env.CIRCLE_API_KEY;
+    const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
     if (!apiKey || !entitySecret) {
       return errAsync(
         new QuoteError("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET must be set", "ARC_TESTNET"),

@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { err, ok, type Result } from "neverthrow";
 import type { ExecutionResult, Intent, ParsedIntent, Route } from "@agora/types";
+import Anthropic from "@anthropic-ai/sdk";
+import { type Result, err, ok } from "neverthrow";
 
 // Stub — implemented in M3
 export async function parseIntent(_raw: string): Promise<Result<ParsedIntent, Error>> {

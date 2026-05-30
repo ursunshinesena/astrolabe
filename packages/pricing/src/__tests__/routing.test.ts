@@ -1,9 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  buildRouteOptions,
-  compareRoutes,
-  BRIDGE_FEE_FIXED,
-} from "../routing.js";
+import { describe, expect, it } from "vitest";
+import { BRIDGE_FEE_FIXED, buildRouteOptions, compareRoutes } from "../routing.js";
 import type { SwapQuote } from "../types.js";
 
 function makeQuote(
@@ -24,7 +20,7 @@ function makeQuote(
 
 const QUOTES = {
   ETHEREUM_SEPOLIA: makeQuote("ETHEREUM_SEPOLIA", "0.04900"),
-  BASE_SEPOLIA: makeQuote("BASE_SEPOLIA", "0.04950"),   // best swap rate
+  BASE_SEPOLIA: makeQuote("BASE_SEPOLIA", "0.04950"), // best swap rate
   ARC_TESTNET: makeQuote("ARC_TESTNET", "0.04800"),
 };
 
@@ -45,8 +41,8 @@ describe("buildRouteOptions", () => {
     const swapOnly = options.find((o) => o.strategy === "swap_only");
 
     expect(swapOnly).toBeDefined();
-    expect(swapOnly!.bridgeFee.amount).toBe("0");
-    expect(swapOnly!.netAmountOut).toBe(QUOTES.ETHEREUM_SEPOLIA.amountOut);
+    expect(swapOnly?.bridgeFee.amount).toBe("0");
+    expect(swapOnly?.netAmountOut).toBe(QUOTES.ETHEREUM_SEPOLIA.amountOut);
   });
 
   it("bridge_then_swap netAmountOut is less than raw amountOut (fee deducted)", () => {
@@ -62,7 +58,7 @@ describe("buildRouteOptions", () => {
     const options = buildRouteOptions({ sourceChain: "ETHEREUM_SEPOLIA", quotes: QUOTES });
     const bridgeOpt = options.find((o) => o.strategy === "bridge_then_swap");
 
-    expect(bridgeOpt!.bridgeFee).toEqual(BRIDGE_FEE_FIXED);
+    expect(bridgeOpt?.bridgeFee).toEqual(BRIDGE_FEE_FIXED);
   });
 
   it("falls back to slippageBps param when swapQuote.slippageBps is absent", () => {
@@ -114,8 +110,8 @@ describe("compareRoutes", () => {
     const { allOptions } = compareRoutes(options);
 
     for (let i = 0; i < allOptions.length - 1; i++) {
-      expect(Number(allOptions[i]!.netAmountOut)).toBeGreaterThanOrEqual(
-        Number(allOptions[i + 1]!.netAmountOut),
+      expect(Number(allOptions[i]?.netAmountOut)).toBeGreaterThanOrEqual(
+        Number(allOptions[i + 1]?.netAmountOut),
       );
     }
   });

@@ -1,6 +1,6 @@
 import { createCircleWalletsAdapter } from "@circle-fin/adapter-circle-wallets";
 import { AppKit } from "@circle-fin/app-kit";
-import { err, ok, type Result } from "neverthrow";
+import { type Result, err, ok } from "neverthrow";
 
 // App Kit chain name strings — NOT numeric chain IDs
 // Source: bridge-stablecoin skill
@@ -38,8 +38,8 @@ export type BridgeParams = {
 const BRIDGE_STEP_NAMES = new Set(["approve", "burn", "fetchAttestation", "mint"]);
 
 export async function bridgeUSDC(params: BridgeParams): Promise<Result<BridgeResult, Error>> {
-  const apiKey = process.env["CIRCLE_API_KEY"];
-  const entitySecret = process.env["CIRCLE_ENTITY_SECRET"];
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
   if (!apiKey || !entitySecret) {
     return err(new Error("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET env vars must be set"));
   }

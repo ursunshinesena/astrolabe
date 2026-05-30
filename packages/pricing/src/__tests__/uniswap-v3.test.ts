@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getUniswapV3Quote } from "../quoters/uniswap-v3.js";
 import { QuoteError } from "../types.js";
 

@@ -15,10 +15,7 @@ export type Token = z.infer<typeof TokenSchema>;
  */
 export const AmountSchema = z
   .string()
-  .regex(
-    /^\d+(\.\d+)?$/,
-    "amount must be a positive decimal string (e.g. '500' or '0.5')"
-  );
+  .regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string (e.g. '500' or '0.5')");
 export type Amount = z.infer<typeof AmountSchema>;
 
 /**

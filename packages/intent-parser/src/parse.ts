@@ -1,5 +1,5 @@
 import { callGemini } from "./gemini-client";
-import { IntentResultSchema, type IntentResult } from "./types";
+import { type IntentResult, IntentResultSchema } from "./types";
 
 export async function parseIntent(userText: string): Promise<IntentResult> {
   let raw: unknown;

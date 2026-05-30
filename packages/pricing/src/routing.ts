@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { SupportedChainKey } from "@agora/chains";
+import { z } from "zod";
 import type { SwapQuote } from "./types.js";
 
 export const BridgeFeeSchema = z.object({

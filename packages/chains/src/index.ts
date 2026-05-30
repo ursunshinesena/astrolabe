@@ -1,4 +1,4 @@
-import { type Chain, createPublicClient, http } from "viem";
+import { http, type Chain, createPublicClient } from "viem";
 import { arbitrumSepolia, baseSepolia, sepolia } from "viem/chains";
 
 // Arc Testnet — USDC is the native gas token (18 decimals for gas, 6 for ERC-20)
@@ -66,7 +66,12 @@ export const UNISWAP_V3_ADDRESSES = {
     swapRouter02: "0x101F443B4d1b059569D643917553c771E1b9663E" as `0x${string}`,
     weth: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73" as `0x${string}`,
   },
-} satisfies Partial<Record<SupportedChainKey, { quoterV2: `0x${string}`; swapRouter02: `0x${string}`; weth: `0x${string}` }>>;
+} satisfies Partial<
+  Record<
+    SupportedChainKey,
+    { quoterV2: `0x${string}`; swapRouter02: `0x${string}`; weth: `0x${string}` }
+  >
+>;
 
 export type UniswapV3ChainKey = keyof typeof UNISWAP_V3_ADDRESSES;
 

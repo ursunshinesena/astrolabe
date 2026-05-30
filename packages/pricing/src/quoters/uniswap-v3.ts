@@ -1,11 +1,11 @@
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
 import {
   SUPPORTED_CHAINS,
   UNISWAP_V3_ADDRESSES,
   USDC_ADDRESSES,
   type UniswapV3ChainKey,
 } from "@agora/chains";
-import { POOL_FEE, QUOTER_V2_ABI, type PoolFee } from "../abi/uniswap-v3-quoter.js";
+import { http, createPublicClient, formatUnits, parseUnits } from "viem";
+import { POOL_FEE, type PoolFee, QUOTER_V2_ABI } from "../abi/uniswap-v3-quoter.js";
 import { QuoteError, type SwapQuote } from "../types.js";
 
 type ResolvedToken = { address: `0x${string}`; decimals: number };

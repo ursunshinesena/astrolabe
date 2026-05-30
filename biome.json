@@ -24,7 +24,8 @@
       "coverage",
       ".turbo",
       "packages/contracts/out",
-      "packages/contracts/cache"
+      "packages/contracts/cache",
+      "**/scripts"
     ]
   }
 }

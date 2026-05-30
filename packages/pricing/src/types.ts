@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { SupportedChainKey } from "@agora/chains";
+import { z } from "zod";
 
 export const SwapQuoteSchema = z.object({
   chainKey: z.string() as z.ZodType<SupportedChainKey>,

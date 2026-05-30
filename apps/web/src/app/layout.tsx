@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Agora Agent",
-  description: "Cross-Market Execution Agent — 4 chains, 1 prompt, 1 confirmation, atomic settlement.",
+  description:
+    "Cross-Market Execution Agent — 4 chains, 1 prompt, 1 confirmation, atomic settlement.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

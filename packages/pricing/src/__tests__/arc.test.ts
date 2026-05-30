@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getArcQuote } from "../quoters/arc.js";
 import { QuoteError } from "../types.js";
 
@@ -66,14 +66,14 @@ describe("getArcQuote", () => {
   });
 
   it("throws QuoteError for an unsupported tokenIn", async () => {
-    await expect(
-      getArcQuote({ ...BASE_PARAMS, tokenIn: "DOGE" }),
-    ).rejects.toBeInstanceOf(QuoteError);
+    await expect(getArcQuote({ ...BASE_PARAMS, tokenIn: "DOGE" })).rejects.toBeInstanceOf(
+      QuoteError,
+    );
   });
 
   it("throws QuoteError for an unsupported tokenOut", async () => {
-    await expect(
-      getArcQuote({ ...BASE_PARAMS, tokenOut: "SHIB" }),
-    ).rejects.toBeInstanceOf(QuoteError);
+    await expect(getArcQuote({ ...BASE_PARAMS, tokenOut: "SHIB" })).rejects.toBeInstanceOf(
+      QuoteError,
+    );
   });
 });

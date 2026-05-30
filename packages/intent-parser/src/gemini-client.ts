@@ -12,9 +12,7 @@ function getClient(): GoogleGenAI {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is not set. Add it to .env.local at the repo root."
-    );
+    throw new Error("GEMINI_API_KEY is not set. Add it to .env.local at the repo root.");
   }
 
   cachedClient = new GoogleGenAI({ apiKey });

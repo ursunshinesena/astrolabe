@@ -1,5 +1,5 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
-import { err, ok, type Result } from "neverthrow";
+import { type Result, err, ok } from "neverthrow";
 
 // Circle SDK blockchain identifier strings (testnet)
 // Source: developers.circle.com/wallets/supported-blockchains
@@ -18,8 +18,8 @@ const POLL_TIMEOUT_MS = 120_000;
 const TERMINAL_STATES = new Set(["COMPLETE", "FAILED", "DENIED", "CANCELLED"]);
 
 function makeClient() {
-  const apiKey = process.env["CIRCLE_API_KEY"];
-  const entitySecret = process.env["CIRCLE_ENTITY_SECRET"];
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
   if (!apiKey || !entitySecret) {
     throw new Error("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET env vars must be set");
   }

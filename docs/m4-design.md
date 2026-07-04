@@ -1,7 +1,8 @@
 # M4 Design — Guarded Executor
 
 Status: Approved design, pre-implementation
-Scope: Cross-chain execution of a parsed intent (USDC -> ETH hero flow)
+Scope: Cross-chain execution of a parsed intent
+(USDC -> ETH hero flow, Ethereum Sepolia -> Base Sepolia)
 
 ## Decisions
 
@@ -24,6 +25,21 @@ and leave the execution in the `pending` state (see failure handling).
 Webhooks were rejected for MVP: they require a publicly reachable
 backend URL and add failure points. Polling is simple, predictable,
 and officially supported.
+
+### 4. Hero flow route: Ethereum Sepolia -> Base Sepolia
+Source: Ethereum Sepolia (mature testnet, abundant faucets, proven
+CCTP path from M1). Destination: Base Sepolia (best testnet DEX
+availability for the USDC -> ETH swap).
+The first technical step of M4a is verifying a working USDC -> ETH
+swap path on Base Sepolia. Fallback destination: Arbitrum Sepolia.
+The other chains remain in scope for price quoting (M2); execution
+is a single hardened route.
+
+### 5. State persistence: JSON file
+Each execution is persisted to a JSON file on disk, updated on every
+state transition. Survives backend restarts, requires zero setup,
+and is human-readable for debugging. A production system would need
+a database; a file is sufficient for M4 scope.
 
 ## Execution state machine
 
@@ -72,11 +88,6 @@ funds are and can access them — not that funds are always sent back.
 
 One USDC -> ETH execution completed end-to-end on testnet,
 passing through every happy-path state.
-
-## Open questions for M4a
-
-- Which source and destination chains for the hero flow?
-- Where is execution state persisted (in-memory, file, or database)?
 
 ## Out of scope for M4
 

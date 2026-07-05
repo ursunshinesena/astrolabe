@@ -20,19 +20,19 @@ importers:
 
   apps/api:
     dependencies:
-      '@agora/agent':
+      '@astrolabe/agent':
         specifier: workspace:*
         version: link:../../packages/agent
-      '@agora/chains':
+      '@astrolabe/chains':
         specifier: workspace:*
         version: link:../../packages/chains
-      '@agora/circle':
+      '@astrolabe/circle':
         specifier: workspace:*
         version: link:../../packages/circle
-      '@agora/pricing':
+      '@astrolabe/pricing':
         specifier: workspace:*
         version: link:../../packages/pricing
-      '@agora/types':
+      '@astrolabe/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@hono/node-server':
@@ -60,16 +60,16 @@ importers:
 
   apps/web:
     dependencies:
-      '@agora/agent':
+      '@astrolabe/agent':
         specifier: workspace:*
         version: link:../../packages/agent
-      '@agora/chains':
+      '@astrolabe/chains':
         specifier: workspace:*
         version: link:../../packages/chains
-      '@agora/circle':
+      '@astrolabe/circle':
         specifier: workspace:*
         version: link:../../packages/circle
-      '@agora/types':
+      '@astrolabe/types':
         specifier: workspace:*
         version: link:../../packages/types
       next:
@@ -106,18 +106,18 @@ importers:
 
   packages/agent:
     dependencies:
-      '@agora/chains':
-        specifier: workspace:*
-        version: link:../chains
-      '@agora/pricing':
-        specifier: workspace:*
-        version: link:../pricing
-      '@agora/types':
-        specifier: workspace:*
-        version: link:../types
       '@anthropic-ai/sdk':
         specifier: ^0.36.0
         version: 0.36.3
+      '@astrolabe/chains':
+        specifier: workspace:*
+        version: link:../chains
+      '@astrolabe/pricing':
+        specifier: workspace:*
+        version: link:../pricing
+      '@astrolabe/types':
+        specifier: workspace:*
+        version: link:../types
       neverthrow:
         specifier: ^8.1.0
         version: 8.2.0
@@ -150,7 +150,7 @@ importers:
 
   packages/circle:
     dependencies:
-      '@agora/types':
+      '@astrolabe/types':
         specifier: workspace:*
         version: link:../types
       '@circle-fin/adapter-circle-wallets':
@@ -203,10 +203,10 @@ importers:
 
   packages/pricing:
     dependencies:
-      '@agora/chains':
+      '@astrolabe/chains':
         specifier: workspace:*
         version: link:../chains
-      '@agora/types':
+      '@astrolabe/types':
         specifier: workspace:*
         version: link:../types
       '@circle-fin/adapter-circle-wallets':

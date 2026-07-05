@@ -1,5 +1,5 @@
 {
-  "name": "@agora/pricing",
+  "name": "@astrolabe/pricing",
   "version": "0.0.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,8 +16,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@agora/chains": "workspace:*",
-    "@agora/types": "workspace:*",
+    "@astrolabe/chains": "workspace:*",
+    "@astrolabe/types": "workspace:*",
     "@circle-fin/adapter-circle-wallets": "^1.0.0",
     "@circle-fin/app-kit": "^1.0.0",
     "neverthrow": "^8.1.0",

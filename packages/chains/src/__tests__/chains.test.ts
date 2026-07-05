@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as chains from "../index.js";
 
-describe("@agora/chains exports", () => {
+describe("@astrolabe/chains exports", () => {
   it("loads the module without errors", () => {
     expect(chains).toBeDefined();
   });

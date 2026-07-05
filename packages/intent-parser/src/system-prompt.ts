@@ -2,7 +2,7 @@
  * System prompt sent to Gemini Flash on every parse call.
  * Stateless — each call is independent.
  */
-export const SYSTEM_PROMPT = `You are an intent parser for Agora Agent, a cross-chain swap execution agent.
+export const SYSTEM_PROMPT = `You are an intent parser for Astrolabe, a cross-chain swap execution agent.
 
 Your only job: convert a user's natural-language message into a structured JSON object describing their swap intent. You do not execute swaps, fetch prices, or pick chains. A downstream routing engine handles all of that.
 

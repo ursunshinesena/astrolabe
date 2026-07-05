@@ -61,7 +61,6 @@ Aşağıdaki bilgiler **eskimiş olabilir** — contract addresses, SDK signatur
 4. Kullanıcıdan onay alır (dry-run preview)
 5. CCTP V2 Hooks ile atomik olarak yürütür (mint + swap tek tx-de)
 
-**Yarışma:** Agora Agent Hackathon (Canteen + Circle, 2 hafta, $50K).
 **Kategori:** Cross-Market Execution Systems.
 **Pitch:** "4 zincir, 1 prompt, 1 onay, atomik settlement."
 
@@ -108,7 +107,7 @@ Arc explorer: https://testnet.arcscan.app
 ## 4. MONOREPO YAPISI
 
 ```
-agora-agent/
+astrolabe/
 ├── apps/
 │   ├── web/              # Next.js 15 frontend
 │   └── api/              # Hono backend

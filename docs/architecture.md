@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Agora Agent is a cross-market execution agent. A user types a natural-language intent; the agent resolves it to an optimal on-chain execution across up to 4 EVM chains.
+Astrolabe is a cross-market execution agent. A user types a natural-language intent; the agent resolves it to an optimal on-chain execution across up to 4 EVM chains.
 
 ```
 User prompt
@@ -34,14 +34,14 @@ ExecutionResult (tx hashes, actual output, block explorer links)
 
 | Package | Role |
 |---|---|
-| `@agora/types` | Zod schemas + inferred types shared across all packages |
-| `@agora/chains` | Chain configs (viem), CCTP domain IDs, Circle chain names, RPC clients |
-| `@agora/agent` | LLM intent parser + routing engine |
-| `@agora/pricing` | 0x Swap API wrapper — price quotes per chain |
-| `@agora/circle` | Circle SDK wrappers: developer-controlled wallets + App Kit bridge |
-| `@agora/contracts` | Foundry project: IHook interface + SwapHook implementation |
-| `@agora/web` | Next.js 15 chat UI + execution dashboard |
-| `@agora/api` | Hono API server — intent endpoint, execution endpoint, status polling |
+| `@astrolabe/types` | Zod schemas + inferred types shared across all packages |
+| `@astrolabe/chains` | Chain configs (viem), CCTP domain IDs, Circle chain names, RPC clients |
+| `@astrolabe/agent` | LLM intent parser + routing engine |
+| `@astrolabe/pricing` | 0x Swap API wrapper — price quotes per chain |
+| `@astrolabe/circle` | Circle SDK wrappers: developer-controlled wallets + App Kit bridge |
+| `@astrolabe/contracts` | Foundry project: IHook interface + SwapHook implementation |
+| `@astrolabe/web` | Next.js 15 chat UI + execution dashboard |
+| `@astrolabe/api` | Hono API server — intent endpoint, execution endpoint, status polling |
 
 ## Key Design Decisions
 

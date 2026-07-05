@@ -1,5 +1,5 @@
 {
-  "name": "@agora/web",
+  "name": "@astrolabe/web",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -12,10 +12,10 @@
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
-    "@agora/agent": "workspace:*",
-    "@agora/chains": "workspace:*",
-    "@agora/circle": "workspace:*",
-    "@agora/types": "workspace:*",
+    "@astrolabe/agent": "workspace:*",
+    "@astrolabe/chains": "workspace:*",
+    "@astrolabe/circle": "workspace:*",
+    "@astrolabe/types": "workspace:*",
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

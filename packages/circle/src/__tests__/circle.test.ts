@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as circle from "../index.js";
 
-describe("@agora/circle exports", () => {
+describe("@astrolabe/circle exports", () => {
   it("loads the module without errors", () => {
     expect(circle).toBeDefined();
   });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as agent from "../index.js";
 
-describe("@agora/agent exports", () => {
+describe("@astrolabe/agent exports", () => {
   it("loads the module without errors", () => {
     expect(agent).toBeDefined();
   });

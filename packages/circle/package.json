@@ -1,5 +1,5 @@
 {
-  "name": "@agora/circle",
+  "name": "@astrolabe/circle",
   "version": "0.0.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,7 +16,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@agora/types": "workspace:*",
+    "@astrolabe/types": "workspace:*",
     "@circle-fin/adapter-circle-wallets": "^1.0.0",
     "@circle-fin/adapter-viem-v2": "^1.0.0",
     "@circle-fin/app-kit": "^1.0.0",

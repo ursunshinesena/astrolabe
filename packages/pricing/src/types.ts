@@ -1,4 +1,4 @@
-import type { SupportedChainKey } from "@agora/chains";
+import type { SupportedChainKey } from "@astrolabe/chains";
 import { z } from "zod";
 
 export const SwapQuoteSchema = z.object({

@@ -3,7 +3,7 @@ import {
   UNISWAP_V3_ADDRESSES,
   USDC_ADDRESSES,
   type UniswapV3ChainKey,
-} from "@agora/chains";
+} from "@astrolabe/chains";
 import { http, createPublicClient, formatUnits, parseUnits } from "viem";
 import { POOL_FEE, type PoolFee, QUOTER_V2_ABI } from "../abi/uniswap-v3-quoter.js";
 import { QuoteError, type SwapQuote } from "../types.js";

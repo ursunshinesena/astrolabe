@@ -1,4 +1,4 @@
-import type { UniswapV3ChainKey } from "@agora/chains";
+import type { UniswapV3ChainKey } from "@astrolabe/chains";
 import { ResultAsync, errAsync } from "neverthrow";
 import { z } from "zod";
 import { getArcQuote } from "./quoters/arc.js";

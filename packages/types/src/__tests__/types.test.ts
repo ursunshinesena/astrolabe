@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as types from "../index.js";
 
-describe("@agora/types exports", () => {
+describe("@astrolabe/types exports", () => {
   it("loads the module without errors", () => {
     expect(types).toBeDefined();
   });

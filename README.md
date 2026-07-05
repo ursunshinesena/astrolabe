@@ -1,6 +1,6 @@
-# Agora Agent
+# Astrolabe
 
-Cross-Market Execution Agent — Agora Agent Hackathon (Canteen + Circle).
+Cross-Market Execution Agent.
 
 > "4 chains, 1 prompt, 1 confirmation, atomic settlement."
 
@@ -30,10 +30,10 @@ https://developers.circle.com/wallets/dev-controlled/register-entity-secret
 pnpm dev
 
 # API only (port 3001)
-pnpm --filter @agora/api dev
+pnpm --filter @astrolabe/api dev
 
 # Web only (port 3000)
-pnpm --filter @agora/web dev
+pnpm --filter @astrolabe/web dev
 ```
 
 ## Testing
@@ -49,7 +49,7 @@ pnpm type-check
 cd packages/contracts && forge test
 
 # Integration tests (hit real testnet RPC — requires env vars)
-ETH_SEPOLIA_RPC_URL=https://... BASE_SEPOLIA_RPC_URL=https://... pnpm --filter @agora/pricing test
+ETH_SEPOLIA_RPC_URL=https://... BASE_SEPOLIA_RPC_URL=https://... pnpm --filter @astrolabe/pricing test
 ```
 
 Integration tests are skipped automatically when RPC env vars are absent, so `pnpm test` is always safe to run in CI.

@@ -1,5 +1,5 @@
-import type { ExecutionResult, Intent, ParsedIntent, Route } from "@agora/types";
 import Anthropic from "@anthropic-ai/sdk";
+import type { ExecutionResult, Intent, ParsedIntent, Route } from "@astrolabe/types";
 import { type Result, err, ok } from "neverthrow";
 
 // Stub — implemented in M3

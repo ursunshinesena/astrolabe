@@ -94,3 +94,13 @@ passing through every happy-path state.
 - Frontend / proof screen (M5)
 - Webhook-based attestation
 - Custom on-chain contracts (possible future work)
+
+## Route verification (2026-07-05)
+
+Verified on Base Sepolia via read-only `cast` calls (factory `getPool`, pool `liquidity()`, QuoterV2 `quoteExactInputSingle`):
+
+- USDC/WETH pools exist at all three fee tiers (500 / 3000 / 10000).
+- **Selected tier: 3000 (0.3%)** — pool `0x46880b404CD35c165EDdefF7421019F8dD25F4Ad`, deepest active liquidity (~1.1e14) and stable quotes.
+- Quote proof: 1 USDC → ~0.00184 WETH (non-zero, no revert, ~90k gas estimate).
+- Testnet prices deviate from market (expected; no arbitrage incentive). The 500 tier shows heavy price skew consistent with shallow liquidity — avoid.
+- Conclusion: **Ethereum Sepolia → Base Sepolia route confirmed.** Fallback (Arbitrum Sepolia) not needed. Executor will use QuoterV2 for pre-swap price checks.

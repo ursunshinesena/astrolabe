@@ -2,7 +2,7 @@
 
 Cross-Market Execution Agent.
 
-> "4 chains, 1 prompt, 1 confirmation, atomic settlement."
+> "One intent. Four chains. Guarded execution with deterministic refund paths."
 
 ## Requirements
 
@@ -45,7 +45,7 @@ pnpm test
 # Type checking
 pnpm type-check
 
-# Smart contract tests
+# Smart contract tests (legacy — not part of the current execution path)
 cd packages/contracts && forge test
 
 # Integration tests (hit real testnet RPC — requires env vars)
@@ -56,16 +56,17 @@ Integration tests are skipped automatically when RPC env vars are absent, so `pn
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md).
+See [docs/architecture.md](docs/architecture.md) for the system overview
+and [docs/m4-design.md](docs/m4-design.md) for the execution engine design.
 
 ## Supported Chains (testnet)
 
-| Chain | CCTP Domain | DEX | Status |
+| Chain | CCTP Domain | DEX | Role |
 |---|---|---|---|
-| Ethereum Sepolia | 0 | Uniswap V3 | ✅ M1 + M2 |
-| Base Sepolia | 6 | Uniswap V3 | ✅ M1 + M2 |
-| Arc Testnet | 26 | App Kit swap | ✅ M2 |
-| Arbitrum Sepolia | 3 | Uniswap V3 | 🔜 M4 |
+| Ethereum Sepolia | 0 | Uniswap V3 | Source chain |
+| Base Sepolia | 6 | Uniswap V3 (0.3% pool, verified) | Primary swap destination |
+| Arc Testnet | 26 | App Kit swap | Quote comparison |
+| Arbitrum Sepolia | 3 | Uniswap V3 | Backup route (unverified) |
 
-Faucet: https://faucet.circle.com  
+Faucet: https://faucet.circle.com
 Arc explorer: https://testnet.arcscan.app

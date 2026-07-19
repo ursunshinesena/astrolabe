@@ -1,102 +1,111 @@
 # CLAUDE.md
 
-> **Bu dosya repo root'unda bulunur ve her Claude Code oturumunda otomatik okunur.**
-> Buradaki kurallar tüm task'lar için bağlayıcıdır. Bir conflict olursa bu dosya kazanır.
+> **This file lives at the repo root and is read automatically in every Claude Code session.**
+> The rules here are binding for all tasks. If there is a conflict, this file wins.
 
 ---
 
-## 1. ZORUNLU BOOTSTRAP — Her şeyden önce yapılacak
+## 1. MANDATORY BOOTSTRAP — Do this before anything else
 
-**Yeni bir Claude Code oturumu başlattığında, herhangi bir kod yazmadan ÖNCE şu adımları sırayla yap:**
+**When starting a new Claude Code session, complete these steps in order BEFORE writing any code:**
 
-### 1.1 Circle Skills yüklü mü kontrol et
+### 1.1 Check whether Circle Skills are installed
 
 ```bash
 ls ~/.claude/plugins/marketplaces/circle/ 2>/dev/null || echo "MISSING"
 ```
 
-Eğer `MISSING` çıkarsa, kullanıcıdan Claude Code içinde şu komutları çalıştırmasını iste:
+If `MISSING`, ask the user to run these inside Claude Code:
 
 ```
 /plugin marketplace add circlefin/skills
 /plugin install circle-skills@circle
 ```
 
-### 1.2 Circle MCP server bağlı mı kontrol et
+### 1.2 Check whether the Circle MCP server is connected
 
-`/mcp` komutuyla bağlı server'ları gör. `circle` yoksa kullanıcıya şunu çalıştırmasını söyle:
+Use `/mcp` to list connected servers. If `circle` is absent, tell the user to run:
 
 ```
 claude mcp add --transport http circle https://api.circle.com/v1/codegen/mcp --scope user
 ```
 
-### 1.3 Skill'leri planlamadan önce oku
+### 1.3 Read the skills before planning
 
-**ZORUNLU OKUMA SIRASI** (task'a başlamadan önce):
+**MANDATORY READING ORDER** (before starting a task):
 
-| Task türü | Önce oku |
+| Task type | Read first |
 |---|---|
 | CCTP / bridge / cross-chain | `bridge-stablecoin` skill |
-| Arc'a deploy veya Arc-spesifik | `use-arc` skill |
-| Wallet oluşturma/yönetimi | `use-circle-wallets` + `use-developer-controlled-wallets` |
+| Deploying to Arc or Arc-specific | `use-arc` skill |
+| Wallet creation/management | `use-circle-wallets` + `use-developer-controlled-wallets` |
 | Smart contract deploy | `use-smart-contract-platform` skill |
-| Nanopayments / mikroödeme | `use-gateway` skill |
+| Nanopayments / micropayments | `use-gateway` skill |
 | Routing/swap engine | App Kit docs (`docs.arc.network/app-kit`) |
 
-**Kural:** Skill'i okumadan o alanda kod yazma. Skill'ler architecture decision'ları, common mistakes ve doğru pattern'ları içeriyor.
+**Rule:** Do not write code in an area without reading its skill. Skills contain
+architecture decisions, common mistakes, and correct patterns.
 
-### 1.4 Live data için MCP'yi kullan
+### 1.4 Use MCP for live data
 
-Aşağıdaki bilgiler **eskimiş olabilir** — contract addresses, SDK signatures, chain IDs, CCTP domain IDs, fee yapıları. Bunlara ihtiyaç olduğunda **Circle MCP server'a sor**, hardcoded değer kullanma.
-
----
-
-## 2. PROJE ÖZETİ
-
-**Ürün:** Cross-Market Execution Agent. Kullanıcı doğal dilde niyet yazar ("100 USDC ile en iyi ETH al"). Ajan:
-
-1. LLM ile niyeti structured action'a çevirir
-2. Birden fazla zincirde fiyat, gas, CCTP fee'sini paralel sorgular
-3. Optimal rotayı seçer (kaynak zincirde swap mı, başka zincire bridge+swap mi)
-4. Kullanıcıdan onay alır (dry-run preview)
-5. CCTP V2 Hooks ile atomik olarak yürütür (mint + swap tek tx-de)
-
-**Kategori:** Cross-Market Execution Systems.
-**Pitch:** "4 zincir, 1 prompt, 1 onay, atomik settlement."
-
-### Neden bu fikir kazanır
-- **CCTP V2 Hooks** özelliği ürünün merkezinde — sponsor'ın yeni özelliği
-- **Arc**'ı sadece "destekliyoruz" demiyoruz, USDC-as-gas avantajını agent için kullanıyoruz (ajanın gas token'ı için ayrı bakiye yönetmesine gerek yok)
-- **App Kit**'in üstüne intelligent routing katmanı koyuyoruz — sıfırdan bridge kodlamıyoruz, mevcut altyapıyı zekice kullanıyoruz
-- Opsiyonel: **ERC-8004** agent identity ile ajanın on-chain reputation'ı olur
+The information below **may be stale** — contract addresses, SDK signatures, chain IDs,
+CCTP domain IDs, fee structures. When you need them, **ask the Circle MCP server**;
+do not use hardcoded values.
 
 ---
 
-## 3. TEKNOLOJİ STACK — DEĞİŞTİRİLEMEZ
+## 2. PROJECT SUMMARY
 
-| Katman | Seçim | Neden |
+**Product:** Cross-Market Execution Agent. The user types a natural-language intent
+("buy the best ETH with 100 USDC"). The agent:
+
+1. Parses the intent into a structured action via LLM
+2. Queries price, gas, and CCTP fees across multiple chains in parallel
+3. Selects the optimal route (swap on source chain vs. bridge+swap on another chain)
+4. Gets user approval (dry-run preview)
+5. Executes with guarded execution: burn → attestation → mint → swap. Every step is
+   persisted in a state machine; if the swap fails it retries (3 attempts), and if it
+   still fails, USDC is left safe on the destination chain.
+
+**Category:** Cross-Market Execution Systems.
+**Pitch:** "One intent. Four chains. Guarded execution with deterministic refund paths."
+
+### Why this idea wins
+- **CCTP V2** is at the core of the product — the sponsor's flagship feature
+- We don't merely "support" **Arc**; we exploit its USDC-as-gas advantage for the agent
+  (no separate gas-token balance to manage)
+- We put an intelligent routing layer on top of **App Kit** — we don't rebuild bridging
+  from scratch, we use existing infrastructure cleverly
+- Optional: **ERC-8004** agent identity gives the agent on-chain reputation
+
+---
+
+## 3. TECHNOLOGY STACK — IMMUTABLE
+
+| Layer | Choice | Why |
 |---|---|---|
-| Monorepo | Turborepo + pnpm | Hızlı build, paralel task |
-| Smart contracts | Foundry (Solidity 0.8.24+) | Test ve fork desteği |
-| Backend | Hono (Node 20+, TypeScript strict) | Hızlı, edge-ready |
-| Frontend | Next.js 15 (App Router) + Tailwind + shadcn/ui | Hızlı geliştirme, modern UX |
+| Monorepo | Turborepo + pnpm | Fast builds, parallel tasks |
+| Smart contracts | Foundry (Solidity 0.8.24+) | Testing and fork support |
+| Backend | Hono (Node 20+, TypeScript strict) | Fast, edge-ready |
+| Frontend | Next.js 15 (App Router) + Tailwind + shadcn/ui | Fast development, modern UX |
 | LLM | Gemini Flash (Google AI Studio) | Tool use + structured output |
-| Wallet | Circle Programmable Wallets (developer-controlled) | UX puanı, sponsor entegrasyonu |
-| Cross-chain | **CCTP V2** (Bridge Kit SDK) + Arc App Kit | V1 KULLANMA — phase-out 31 Temmuz 2026 |
-| DEX aggregation | Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` | Testnet'te gerçek quote, 0x yok |
+| Wallet | Circle Programmable Wallets (developer-controlled) | UX score, sponsor integration |
+| Cross-chain | **CCTP V2** (Bridge Kit SDK) + Arc App Kit | Use V2 — V1 phase-out July 31, 2026 |
+| DEX aggregation | Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` | Real quotes on testnet, no 0x |
 | Validation | zod | Runtime schema |
-| Linting | biome | tek tool, hızlı |
-| Hosting | Vercel (web) + Railway (api) | Hackathon için yeterli |
+| Linting | biome | One tool, fast |
+| Hosting | Vercel (web) + Railway (api) | Sufficient for the MVP |
 
-### Desteklenen zincirler (testnet)
+### Supported chains (testnet)
 
-**Circle MCP'ye sorarak güncel domain ID'leri ve contract address'leri al. Aşağıdaki bilgiler değişebilir, son söz MCP'ye ait.**
+**Ask Circle MCP for current domain IDs and contract addresses. The table below can
+go stale; MCP has the final word.**
 
-| Zincir | Notlar |
+| Chain | Notes |
 |---|---|
-| Ethereum Sepolia | Ana referans zincir |
-| Base Sepolia | L2, demo'da CCTP Fast'ı gösterir |
-| Arbitrum Sepolia | CCTP V2 + Uniswap V3 deploy'lu, Fuji'nin yerini aldı |
+| Ethereum Sepolia | Primary reference chain |
+| Base Sepolia | L2, demos CCTP Fast |
+| Arbitrum Sepolia | CCTP V2 + Uniswap V3 deploy, replaced Fuji |
 | **Arc Testnet** | USDC-as-gas, sub-second finality, agentic economy primitives |
 
 Faucet: https://faucet.circle.com
@@ -104,118 +113,129 @@ Arc explorer: https://testnet.arcscan.app
 
 ---
 
-## 4. MONOREPO YAPISI
+## 4. MONOREPO STRUCTURE
 
 ```
 astrolabe/
 ├── apps/
-│   ├── web/              # Next.js 15 frontend
-│   └── api/              # Hono backend
+│   ├── web/             # Next.js 15 frontend
+│   └── api/             # Hono backend
 ├── packages/
-│   ├── agent/            # LLM intent parser + routing engine
-│   ├── chains/           # Chain configs, RPC clients, types
-│   ├── contracts/        # Foundry project: Hook contract + interfaces
-│   ├── circle/           # Circle SDK wrappers (Wallets, CCTP, App Kit)
-│   ├── pricing/          # DEX quoter wrappers (Uniswap V3 QuoterV2 + Arc App Kit)
-│   └── types/            # Ortak TS types (Intent, Route, ExecutionResult)
+│   ├── agent/           # Routing engine
+│   ├── chains/          # Chain configs, RPC clients, types
+│   ├── circle/          # Circle SDK wrappers (Wallets, CCTP, App Kit)
+│   ├── contracts/       # LEGACY — Foundry Hook project, not part of the current execution path
+│   ├── intent-parser/   # LLM intent parser (Gemini 2.5 Flash)
+│   ├── pricing/         # DEX quoter wrappers (Uniswap V3 QuoterV2 + Arc App Kit)
+│   └── types/           # Shared TS types (Intent, Route, ExecutionResult)
 ├── docs/
-│   ├── architecture.md   # Mimari kararlar
-│   ├── demo-script.md    # Demo senaryoları
-│   └── decisions/        # ADR (Architecture Decision Records)
+│   ├── architecture.md  # Architecture decisions
+│   ├── m4-design.md     # Execution engine design (M4)
+│   ├── demo-script.md   # Demo scenarios
+│   ├── milestones/      # LEGACY milestone prompts (M0-M9, old plan)
+│   └── decisions/       # ADRs (Architecture Decision Records)
 ├── .env.example
-├── CLAUDE.md             # bu dosya
+├── CLAUDE.md            # this file
 ├── README.md
 ├── turbo.json
 ├── package.json
 └── pnpm-workspace.yaml
 ```
 
-### Paket dependency kuralları
+### Package dependency rules
 - `apps/web` → `packages/agent`, `packages/types`, `packages/chains`, `packages/circle`
 - `apps/api` → `packages/agent`, `packages/types`, `packages/chains`, `packages/circle`, `packages/pricing`
 - `packages/agent` → `packages/types`, `packages/chains`, `packages/pricing`
-- `packages/*` aralarında dairesel bağımlılık YOK
+- NO circular dependencies between `packages/*`
 
 ---
 
-## 5. KOD STANDARDI
+## 5. CODE STANDARDS
 
 ### TypeScript
 - `strict: true`, `noUncheckedIndexedAccess: true`
-- `any` yasak. `unknown` + narrowing kullan.
-- Public API'ler için zod schema. Tipler schema'dan `z.infer<>` ile türetilir.
-- Async fonksiyonlarda `Result<T, E>` pattern'i kullan (neverthrow). Try/catch sadece dış sınırlarda.
+- `any` is forbidden. Use `unknown` + narrowing.
+- zod schemas for public APIs. Types are derived from schemas via `z.infer<>`.
+- Use the `Result<T, E>` pattern (neverthrow) in async functions. Try/catch only at
+  outer boundaries.
 
 ### Solidity
-- Foundry. `forge fmt` ve `forge test` CI'da zorunlu.
-- NatSpec yorumları her external/public fonksiyonda.
-- Slither static analysis CI'da.
-- Reentrancy guard her external state-changing fonksiyonda.
-- Custom errors (revert string yok).
+- Foundry. `forge fmt` and `forge test` are mandatory in CI.
+- NatSpec comments on every external/public function.
+- Slither static analysis in CI.
+- Reentrancy guard on every external state-changing function.
+- Custom errors (no revert strings).
 
 ### Frontend
-- Server components default. Client component sadece interaktivite gerekenlerde.
-- shadcn/ui component'larını ezme — varyant ekle.
-- Renkler `tailwind.config`'te token olarak tanımlanır, hex hardcode YASAK.
+- Server components by default. Client components only where interactivity is required.
+- Don't override shadcn/ui components — add variants.
+- Colors are defined as tokens in `tailwind.config`; hardcoded hex is FORBIDDEN.
 
 ### Naming
 - Files: `kebab-case.ts`
 - Components: `PascalCase`
 - Functions/vars: `camelCase`
 - Constants: `SCREAMING_SNAKE_CASE`
-- Types/Interfaces: `PascalCase`, prefix YOK (Interface'lere `I` koyma)
+- Types/Interfaces: `PascalCase`, no prefix (no `I` on interfaces)
 
 ---
 
-## 6. GÜVENLİK KURALLARI — İHLAL EDİLEMEZ
+## 6. SECURITY RULES — NON-NEGOTIABLE
 
-1. **Hiçbir private key, API key, mnemonic repo'ya commit edilmez.** `.env.local` gitignore'da.
-2. **User funds'a dokunan kod review olmadan main'e merge edilmez.** En az 1 kişi onaylamalı.
-3. **Slippage protection zorunlu.** Her execution path'inde maxSlippage parametresi olmalı, aşılırsa revert.
-4. **Idempotency:** Aynı intent ID iki kez gelirse ikinci request reddedilir.
-5. **Hook contract'larda reentrancy guard zorunlu.**
-6. **Dry-run modu default'tur.** Kullanıcı explicit onay vermeden gerçek tx atılmaz.
-7. **Testnet ve mainnet config'leri ayrı dosyalarda.** Aynı kod path'inde karışmaz.
-8. **CCTP attestation polling timeout'u var** (default 300sn). Sonsuz beklemez.
-9. **Rate limiting:** Aynı kullanıcıdan 10sn'de en fazla 3 execution request.
+1. **No private key, API key, or mnemonic is ever committed to the repo.** `.env.local`
+   is in gitignore.
+2. **Code touching user funds is not merged to main without review.** At least 1 approval.
+3. **Slippage protection is mandatory.** Every execution path must carry a maxSlippage
+   parameter and revert if exceeded.
+4. **Idempotency:** If the same intent ID arrives twice, the second request is rejected.
+5. **Idempotency + persistent state are mandatory in every flow that moves funds.**
+   Every step is persisted; after an interruption, execution must be able to resume
+   where it left off, and funds must never be left in an ambiguous state.
+6. **Dry-run mode is the default.** No real tx is sent without explicit user approval.
+7. **Testnet and mainnet configs live in separate files.** They never mix in the same
+   code path.
+8. **CCTP attestation polling has a timeout** (default 300s). Never wait forever.
+9. **Rate limiting:** max 3 execution requests per user per 10s.
 
 ---
 
-## 7. TASK YÖNETİMİ — Claude Code'un Yapması Gerekenler
+## 7. TASK MANAGEMENT — What Claude Code must do
 
-### Yeni bir task'a başlarken
-1. **Plan modunu kullan** (`/plan`). Önce task'ı parçalara böl.
-2. İlgili skill'leri oku (bkz. §1.3).
-3. Etkilenecek dosyaları listele.
-4. Test stratejisini söyle (unit, integration, e2e).
-5. Kullanıcıdan onay al.
-6. Sonra kod yaz.
+### When starting a new task
+1. **Use plan mode** (`/plan`). Break the task into pieces first.
+2. Read the relevant skills (see §1.3).
+3. List the files that will be affected.
+4. State the test strategy (unit, integration, e2e).
+5. Get user approval.
+6. Then write code.
 
-### Kod yazarken
-- **Küçük, atomik commit'ler.** Bir commit bir mantıksal değişiklik.
+### While writing code
+- **Small, atomic commits.** One commit, one logical change.
 - **Conventional commits** format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
-- Her PR ≤ 400 satır değişiklik. Daha büyükse böl.
-- **Commit mesajlarında Claude attribution YOK.** "Co-Authored-By: Claude", "Generated with Claude", "🤖" veya benzeri işaret hiçbir commit'e girmez. Bu Sena'nın projesi.
+- Every PR ≤ 400 lines of change. Split anything larger.
+- **NO Claude attribution in commit messages.** "Co-Authored-By: Claude",
+  "Generated with Claude", "🤖" or any similar marker never appears in any commit.
+  This is Sena's project.
 
-### Test
-- Her yeni fonksiyon için minimum 1 happy path testi.
-- Para hareketi içeren her fonksiyon için minimum 1 failure path testi.
-- Smart contract'lar için fuzz test (Foundry `invariant` veya `fuzz`).
-- Integration testleri için MSW (frontend) ve nock (backend) ile network mock.
+### Tests
+- Minimum 1 happy-path test for every new function.
+- Minimum 1 failure-path test for every function that moves funds.
+- Fuzz tests for smart contracts (Foundry `invariant` or `fuzz`).
+- Network mocks via MSW (frontend) and nock (backend) for integration tests.
 
-### Dokümantasyon
-- Mimari karar verirken `docs/decisions/NNNN-title.md` formatında ADR yaz.
-- Her public API'nin JSDoc/NatSpec'i olmalı.
-- README'de "how to run locally" adımları daima güncel.
+### Documentation
+- When making an architecture decision, write an ADR in `docs/decisions/NNNN-title.md`.
+- Every public API gets JSDoc/NatSpec.
+- The "how to run locally" steps in the README stay current at all times.
 
 ---
 
-## 8. ENV DEĞİŞKENLERİ
+## 8. ENV VARIABLES
 
 `.env.example`:
 ```bash
-# Anthropic
-ANTHROPIC_API_KEY=
+# Gemini (Google AI Studio)
+GEMINI_API_KEY=
 
 # Circle
 CIRCLE_API_KEY=
@@ -226,10 +246,10 @@ CIRCLE_WALLET_SET_ID=
 ETH_SEPOLIA_RPC_URL=
 BASE_SEPOLIA_RPC_URL=
 ARB_SEPOLIA_RPC_URL=
-ARC_TESTNET_RPC_URL=https://rpc.arc.network/testnet
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network
 
 # Deployment
-PRIVATE_KEY_DEPLOYER=   # SADECE testnet
+PRIVATE_KEY_DEPLOYER=   # testnet ONLY
 ETHERSCAN_API_KEY=
 
 # App
@@ -237,90 +257,102 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 NODE_ENV=development
 ```
 
-Kural: yeni env değişkeni eklerken `.env.example`'i güncelle ve `packages/config`'de zod ile validate et. Uygulama yanlış env ile başlamamalı — fail-fast.
+Rule: when adding a new env variable, update `.env.example` and validate it with zod
+in `packages/config`. The app must not start with a wrong env — fail fast.
 
 ---
 
-## 9. SIK YAPILAN HATALARI ÖNLE
+## 9. PREVENT COMMON MISTAKES
 
-**CCTP ile ilgili:**
-- ❌ V1 contract'larını kullanmak. ✅ V2 canonical.
-- ❌ Domain ID'leri ile chain ID'leri karıştırmak. ✅ Domain ID Circle'a özgü, hardcoded değil — MCP'den al.
-- ❌ Attestation'ı tek seferde beklemek. ✅ Polling + timeout + retry.
-- ❌ Fast Transfer fee'sini hesaba katmamak. ✅ Routing engine'de toplam maliyete dahil et.
+**CCTP:**
+- ❌ Using V1 contracts. ✅ V2 canonical.
+- ❌ Confusing domain IDs with chain IDs. ✅ Domain IDs are Circle-specific, not
+  hardcoded — get them from MCP.
+- ❌ Waiting for attestation in one shot. ✅ Polling + timeout + retry.
+- ❌ Ignoring the Fast Transfer fee. ✅ Include it in total cost in the routing engine.
 
-**Arc ile ilgili:**
-- ❌ Gas için ETH bulundurmaya çalışmak. ✅ Arc'ta gas USDC ile ödenir.
-- ❌ Multi-block confirmation beklemek. ✅ Sub-second deterministic finality — tek block yeter.
-- ❌ Mainnet'e deploy etmek. ✅ Arc testnet only — mainnet henüz yok.
+**Arc:**
+- ❌ Trying to hold ETH for gas. ✅ Gas is paid in USDC on Arc.
+- ❌ Waiting for multi-block confirmation. ✅ Sub-second deterministic finality — one
+  block is enough.
+- ❌ Deploying to mainnet. ✅ Arc testnet only — no mainnet yet.
 
-**Wallet ile ilgili:**
-- ❌ Kullanıcının seed phrase'ini frontend'e taşımak. ✅ Developer-controlled wallets backend'de yaşar.
-- ❌ Entity Secret'i kod içine gömmek. ✅ Env değişkeni, Circle dashboard'dan rotate edilir.
+**Wallet:**
+- ❌ Moving the user's seed phrase to the frontend. ✅ Developer-controlled wallets
+  live in the backend.
+- ❌ Embedding the Entity Secret in code. ✅ Env variable, rotated from the Circle
+  dashboard.
 
-**LLM ile ilgili:**
-- ❌ LLM'in serbest text dönmesine güvenmek. ✅ Tool use ile structured output.
-- ❌ Belirsiz niyetlerde tahmin yürütmek. ✅ Clarifying question sor (örn. "ETH derken Ethereum mainnet ETH mi, Base'deki WETH mi?").
+**LLM:**
+- ❌ Trusting the LLM to return free text. ✅ Structured output via tool use.
+- ❌ Guessing on ambiguous intents. ✅ Ask a clarifying question (e.g. "By ETH do you
+  mean mainnet ETH, or WETH on Base?").
 
-**Genel:**
-- ❌ USDC'yi 18 decimal varsaymak. ✅ USDC 6 decimal — `parseUnits(amount, 6)`.
-- ❌ Demo gününde testnet faucet'lerin dolu olduğunu varsaymak. ✅ Her sabah bakiyeleri kontrol et.
-
----
-
-## 10. MİLESTONE'LAR
-
-Her milestone ayrı bir prompt dosyasında detaylı tanımlı (`docs/milestones/`). Sırayla yapılır, önceki tamamlanmadan sonrakine geçilmez.
-
-| # | Milestone | Süre | Branch |
-|---|---|---|---|
-| M0 | Monorepo + tooling + CI | Gün 1 | `chore/m0-setup` |
-| M1 | Circle Wallets + first CCTP transfer (Sepolia ↔ Base) | Gün 2-3 | `feat/m1-cctp-basic` |
-| M2 | Pricing + gas + routing engine v1 (3 zincir: Sepolia + Base + Arc) | Gün 4-5 | `feat/m2-routing` |
-| M3 | LLM intent parser + frontend chat UX | Gün 6-7 | `feat/m3-agent-ui` |
-| M4 | Arbitrum Sepolia entegrasyonu (4 zincir) | Gün 8 | `feat/m4-multichain` |
-| M5 | CCTP V2 Hooks ile atomic execution | Gün 9 | `feat/m5-hooks` |
-| M6 | Güvenlik, error handling, edge cases | Gün 10 | `chore/m6-hardening` |
-| M7 | Differentiation feature (Telegram bot veya limit order) | Gün 11 | `feat/m7-bonus` |
-| M8 | Polish + demo prep | Gün 12-13 | `chore/m8-polish` |
-| M9 | Submission + buffer | Gün 14 | `release/submit` |
-
-Her milestone için ayrı prompt dosyası `prompts/M{N}-{name}.md` altında bulunur.
+**General:**
+- ❌ Assuming USDC has 18 decimals. ✅ USDC is 6 decimals — `parseUnits(amount, 6)`.
+- ❌ Assuming testnet faucets are full on demo day. ✅ Check balances every morning.
 
 ---
 
-## 11. CLAUDE CODE'A ÖZEL DAVRANIŞ KURALLARI
+## 10. MILESTONES
 
-### Yapmaman gereken
-- **Hiçbir milestone'u atlama.** M2 bitmeden M3'e başlama. Bağımlılık var.
-- **Skill'leri görmezden gelme.** Bir alanda kod yazmadan önce ilgili skill'i oku.
-- **Production-grade demediğim şeylere zaman harcama.** "Beautiful animations" hackathon scope'unda değil — çalışan tx daha değerli.
-- **Soru sorulmadan tahmin yürütme.** Ambiguity varsa kullanıcıya sor.
-- **Mevcut çalışan kodu refactor etme** kullanıcı istemediği sürece. "Ben şuna bakarken bunu da düzenliyim" YOK.
+Done in order; the next one doesn't start before the previous one is complete.
+Past milestones: M0–M3 are done (monorepo+CI, wallets+CCTP, pricing+routing,
+intent parser+UI).
 
-### Yapman gereken
-- **Şüphe varsa Circle MCP'ye sor.** Contract address, SDK signature, fee — hepsi live data.
-- **Hata mesajlarını ciddiye al.** "muhtemelen network problemi" diyerek geçiştirme. Stack trace'i oku, root cause bul.
-- **Test yaz.** Para hareketi olan kodda test yoksa o kod yoktur.
-- **Türkçe veya İngilizce konuşmaya çekinme** — kullanıcı hangisini yazıyorsa o.
+| Milestone | Scope | Exit criterion |
+|---|---|---|
+| M4a 🔵 | Executor core: state machine + burn → attestation → mint → swap | USDC→ETH end-to-end once |
+| M4b | Failure handling | Inject faults → recovery |
+| M5 | Frontend + proof screen | Hero flow in the browser |
+| M6 | Demo + pitch | 3-min video + pitch |
 
----
-
-## 12. DEMO HEDEFİ
-
-Hackathon submission'da göstereceğimiz 3 senaryo:
-
-1. **Basit single-chain:** "Base Sepolia'da 100 USDC'yi ETH'e çevir" — tek zincir baseline
-2. **Cross-chain optimal:** "Ethereum Sepolia'da USDC'm var, en iyi ETH fiyatı için Base'e gönder ve oradan ETH al" — CCTP V2 Fast + Hook ile atomik
-3. **Multi-chain optimal:** "1000 USDC ile en iyi ETH pozisyonu" — ajan 4 zinciri karşılaştırır, gerekçesini açıklar, kullanıcı onaylar, ajan yürütür
-
-Her senaryo end-to-end çalışmalı, her aşama UI'da görsel olarak takip edilebilmeli, ve testnet tx hash'leri block explorer'da görüntülenebilmeli.
+M4 design decisions: `docs/m4-design.md`. The M0–M9 files under `docs/milestones/`
+belong to the old plan (LEGACY) — do not use them as reference.
 
 ---
 
-## 13. KULLANILAN DOKÜMANTASYON KAYNAKLARI
+## 11. CLAUDE CODE BEHAVIOR RULES
 
-Bunlar referans olarak okutulan kaynaklar. Bir konuda emin değilsen önce buraya bak:
+### Don't
+- **Never skip a milestone.** Don't start M5 before M4 is done. There are dependencies.
+- **Never ignore the skills.** Read the relevant skill before writing code in an area.
+- **Don't spend time on things not declared production-grade.** "Beautiful animations"
+  are not in the MVP scope — a working tx is worth more.
+- **Don't guess without asking.** If there's ambiguity, ask the user.
+- **Don't refactor existing working code** unless the user asks. No "while I'm at it,
+  let me also tidy this up."
+
+### Do
+- **When in doubt, ask Circle MCP.** Contract addresses, SDK signatures, fees — all
+  live data.
+- **Take error messages seriously.** Don't wave them off as "probably a network issue."
+  Read the stack trace, find the root cause.
+- **Write tests.** Code that moves funds without tests is not code.
+- **Don't pull the user toward Turkish or English** — mirror whichever they write.
+
+---
+
+## 12. DEMO GOAL
+
+Three scenarios we will show in the demo video:
+
+1. **Simple single-chain:** "Convert 100 USDC to ETH on Base Sepolia" — single-chain
+   baseline
+2. **Cross-chain optimal:** "I have USDC on Ethereum Sepolia; send it to Base for the
+   best ETH price and buy ETH there" — bridge via CCTP V2 Fast, then a guarded swap
+   (if the swap fails, USDC stays safe on the destination chain)
+3. **Multi-chain optimal:** "Best ETH position with 1000 USDC" — the agent compares
+   4 chains, explains its reasoning, the user approves, the agent executes
+
+Every scenario must work end-to-end, every stage must be visually trackable in the UI,
+and testnet tx hashes must be viewable on a block explorer.
+
+---
+
+## 13. REFERENCE DOCUMENTATION
+
+These are the sources to consult. If unsure about a topic, look here first:
 
 - **Circle Skills repo:** https://github.com/circlefin/skills
 - **Circle Developer Docs (LLM index):** https://developers.circle.com/llms.txt
@@ -332,8 +364,9 @@ Bunlar referans olarak okutulan kaynaklar. Bir konuda emin değilsen önce buray
 - **Arc Testnet Explorer API:** https://testnet.arcscan.app/api-docs
 - **USDC Contract Addresses:** https://developers.circle.com/stablecoins/usdc-contract-addresses
 - **CCTP Supported Chains:** https://developers.circle.com/cctp/concepts/supported-chains-and-domains
-- **0x Swap API:** https://0x.org/docs/api
 
 ---
 
-**Son söz:** Bu doküman canlıdır. Mimari karar değiştiğinde buraya yansıt. Yeni bir kural eklediğinde "neden" kısmını da yaz. Gelecekteki Claude (ve insan) bunu okuyacak.
+**Final word:** This document is alive. When an architecture decision changes, reflect
+it here. When you add a new rule, also write the "why." A future Claude (and human)
+will read this.

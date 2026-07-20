@@ -184,6 +184,12 @@ importers:
 
   packages/executor:
     dependencies:
+      '@astrolabe/chains':
+        specifier: workspace:*
+        version: link:../chains
+      '@astrolabe/circle':
+        specifier: workspace:*
+        version: link:../circle
       '@astrolabe/types':
         specifier: workspace:*
         version: link:../types

@@ -5,13 +5,23 @@
  * CCTP flow (burn → attestation → mint → swap) lands in follow-up PRs.
  */
 
-export { ExecutorError, type ExecutorErrorCode } from "./errors.js";
+export {
+  type BridgeStepName,
+  ExecutorError,
+  type ExecutorErrorCode,
+} from "./errors.js";
 export {
   applyTransition,
   createExecution,
   type ExecutionRecord,
   type TransitionRecord,
 } from "./execution.js";
+export {
+  runBridge,
+  type RunBridgeDeps,
+  type RunBridgeParams,
+  type RunBridgeResult,
+} from "./bridging.js";
 export { loadExecution, saveExecution } from "./persistence.js";
 export {
   type PreflightCheck,

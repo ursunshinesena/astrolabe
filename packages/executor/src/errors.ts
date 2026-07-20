@@ -1,4 +1,4 @@
-export type ExecutorErrorCode = "INVALID_TRANSITION" | "PERSISTENCE_FAILURE";
+export type ExecutorErrorCode = "INVALID_TRANSITION" | "PERSISTENCE_FAILURE" | "PREFLIGHT_FAILED";
 
 export class ExecutorError extends Error {
   constructor(

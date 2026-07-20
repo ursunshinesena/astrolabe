@@ -13,5 +13,13 @@ export {
   type TransitionRecord,
 } from "./execution.js";
 export { loadExecution, saveExecution } from "./persistence.js";
+export {
+  type PreflightCheck,
+  type PreflightCheckName,
+  type PreflightDeps,
+  type PreflightParams,
+  type PreflightReport,
+  runPreflight,
+} from "./preflight.js";
 export { EXECUTOR_STATES, type ExecutorState } from "./states.js";
 export { canTransition, TRANSITIONS, transition } from "./transitions.js";

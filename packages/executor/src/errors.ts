@@ -2,7 +2,8 @@ export type ExecutorErrorCode =
   | "INVALID_TRANSITION"
   | "PERSISTENCE_FAILURE"
   | "PREFLIGHT_FAILED"
-  | "BRIDGE_FAILED";
+  | "BRIDGE_FAILED"
+  | "SWAP_FAILED";
 
 /** The bridgeUSDC step a BRIDGE_FAILED error is attributed to. */
 export type BridgeStepName = "approve" | "burn" | "fetchAttestation" | "mint";

@@ -31,5 +31,11 @@ export {
   type PreflightReport,
   runPreflight,
 } from "./preflight.js";
+export {
+  runSwap,
+  type RunSwapDeps,
+  type RunSwapParams,
+  type RunSwapResult,
+} from "./swapping.js";
 export { EXECUTOR_STATES, type ExecutorState } from "./states.js";
 export { canTransition, TRANSITIONS, transition } from "./transitions.js";

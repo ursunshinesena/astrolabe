@@ -40,3 +40,6 @@ packages/circle/*.mjs
 
 # Intent parser manual test scripts (live API calls, not for commit)
 packages/intent-parser/scripts/
+
+# Executor local state
+.astrolabe/

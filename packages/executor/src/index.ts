@@ -1,19 +1,17 @@
 /**
  * @astrolabe/executor — guarded cross-chain execution engine.
  *
- * Scaffold only. State machine, persistence, and CCTP flow
- * will be implemented in M4a follow-up PRs.
+ * State machine + JSON persistence for the M4a executor core.
+ * CCTP flow (burn → attestation → mint → swap) lands in follow-up PRs.
  */
 
-export const EXECUTOR_STATES = [
-  "created",
-  "preflight",
-  "burning",
-  "awaiting_attestation",
-  "minting",
-  "swapping",
-  "completed",
-  "failed_funds_safe",
-] as const;
-
-export type ExecutorState = (typeof EXECUTOR_STATES)[number];
+export { ExecutorError, type ExecutorErrorCode } from "./errors.js";
+export {
+  applyTransition,
+  createExecution,
+  type ExecutionRecord,
+  type TransitionRecord,
+} from "./execution.js";
+export { loadExecution, saveExecution } from "./persistence.js";
+export { EXECUTOR_STATES, type ExecutorState } from "./states.js";
+export { canTransition, TRANSITIONS, transition } from "./transitions.js";

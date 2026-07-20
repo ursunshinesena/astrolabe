@@ -16,9 +16,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@astrolabe/types": "workspace:*"
+    "@astrolabe/types": "workspace:*",
+    "neverthrow": "^8.1.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
   }

@@ -7,7 +7,7 @@ import { type Result, err, ok } from "neverthrow";
 export const APPKIT_CHAIN = {
   ETH_SEPOLIA: "Ethereum_Sepolia",
   BASE_SEPOLIA: "Base_Sepolia",
-  AVAX_FUJI: "Avalanche_Fuji",
+  ARB_SEPOLIA: "Arbitrum_Sepolia",
   ARC_TESTNET: "Arc_Testnet",
 } as const;
 

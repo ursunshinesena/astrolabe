@@ -7,7 +7,7 @@ import { type Result, err, ok } from "neverthrow";
 export const CIRCLE_BLOCKCHAIN = {
   ETH_SEPOLIA: "ETH-SEPOLIA",
   BASE_SEPOLIA: "BASE-SEPOLIA",
-  AVAX_FUJI: "AVAX-FUJI",
+  ARB_SEPOLIA: "ARB-SEPOLIA",
   ARC_TESTNET: "ARC-TESTNET",
 } as const;
 

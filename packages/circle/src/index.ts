@@ -16,3 +16,7 @@ export type {
 export { APPKIT_CHAIN, bridgeUSDC } from "./bridge.js";
 
 export type { AppKitChain, BridgeParams, BridgeResult, BridgeStep } from "./bridge.js";
+
+export { swapOnArc } from "./swap.js";
+
+export type { SwapOnArcParams, SwapOnArcResult } from "./swap.js";

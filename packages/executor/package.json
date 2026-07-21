@@ -18,6 +18,7 @@
   "dependencies": {
     "@astrolabe/chains": "workspace:*",
     "@astrolabe/circle": "workspace:*",
+    "@astrolabe/pricing": "workspace:*",
     "@astrolabe/types": "workspace:*",
     "neverthrow": "^8.1.0",
     "zod": "^3.24.0"

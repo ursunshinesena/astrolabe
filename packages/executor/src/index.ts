@@ -22,6 +22,12 @@ export {
   type RunBridgeParams,
   type RunBridgeResult,
 } from "./bridging.js";
+export {
+  runExecution,
+  type RunExecutionDeps,
+  type RunExecutionParams,
+  type RunExecutionResult,
+} from "./orchestrating.js";
 export { loadExecution, saveExecution } from "./persistence.js";
 export {
   type PreflightCheck,

@@ -27,6 +27,8 @@ export {
   type RunBridgeResult,
 } from "./bridging.js";
 export {
+  ARC_GAS_RESERVE_USDC,
+  bridgeAmountFor,
   runExecution,
   SWAP_RETRY_DELAYS_MS,
   type RunExecutionDeps,

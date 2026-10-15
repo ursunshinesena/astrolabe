@@ -1,4 +1,5 @@
 import type { SupportedChainKey } from "@astrolabe/chains";
+import { bridgeAmountFor } from "@astrolabe/executor";
 import {
   type GetQuoteParams,
   type QuoteError,
@@ -33,6 +34,8 @@ export type RouteView = RouteOption & {
   /** True when the executor can carry this route out on testnet today. */
   executable: boolean;
   reason?: string;
+  /** USDC the executor will bridge: swap amount + bridge fee + Arc gas reserve. */
+  bridgeAmount?: string;
 };
 
 export type QuoteOutcome = {
@@ -54,7 +57,7 @@ function toView(route: RouteOption): RouteView {
   if (route.destinationChain !== "ARC_TESTNET") {
     return { ...route, executable: false, reason: "Swap execution runs on Arc only" };
   }
-  return { ...route, executable: true };
+  return { ...route, executable: true, bridgeAmount: bridgeAmountFor(route) };
 }
 
 /**

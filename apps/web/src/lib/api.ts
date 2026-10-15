@@ -23,6 +23,7 @@ export type RouteView = {
   expectedSlippageBps: number;
   executable: boolean;
   reason?: string;
+  bridgeAmount?: string;
 };
 
 export type QuoteResponse = {

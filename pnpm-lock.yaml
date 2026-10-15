@@ -29,6 +29,12 @@ importers:
       '@astrolabe/circle':
         specifier: workspace:*
         version: link:../../packages/circle
+      '@astrolabe/executor':
+        specifier: workspace:*
+        version: link:../../packages/executor
+      '@astrolabe/intent-parser':
+        specifier: workspace:*
+        version: link:../../packages/intent-parser
       '@astrolabe/pricing':
         specifier: workspace:*
         version: link:../../packages/pricing
@@ -41,6 +47,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.18
+      neverthrow:
+        specifier: ^8.1.0
+        version: 8.2.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76

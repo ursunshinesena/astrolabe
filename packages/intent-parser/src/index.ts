@@ -1,4 +1,4 @@
-export { parseIntent } from "./parse";
+export { parseIntent } from "./parse.js";
 export type {
   Token,
   Amount,
@@ -6,4 +6,4 @@ export type {
   Clarification,
   ParseError,
   IntentResult,
-} from "./types";
+} from "./types.js";

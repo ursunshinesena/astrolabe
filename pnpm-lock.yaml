@@ -29,6 +29,12 @@ importers:
       '@astrolabe/circle':
         specifier: workspace:*
         version: link:../../packages/circle
+      '@astrolabe/executor':
+        specifier: workspace:*
+        version: link:../../packages/executor
+      '@astrolabe/intent-parser':
+        specifier: workspace:*
+        version: link:../../packages/intent-parser
       '@astrolabe/pricing':
         specifier: workspace:*
         version: link:../../packages/pricing
@@ -41,6 +47,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.18
+      neverthrow:
+        specifier: ^8.1.0
+        version: 8.2.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -262,6 +271,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)
 
   packages/pricing:
     dependencies:

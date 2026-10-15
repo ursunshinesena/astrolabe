@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 /**
- * Token allowlist — tokens supported on all four chains.
- * Off-allowlist tokens (e.g. USDT) are rejected during parsing.
+ * Token allowlist. USDC/WETH/ETH are quoted on the Uniswap chains; EURC is
+ * swappable on Arc Testnet (the executable route). Off-allowlist tokens
+ * (e.g. USDT) are rejected during parsing.
  */
-export const TokenSchema = z.enum(["USDC", "WETH", "ETH"]);
+export const TokenSchema = z.enum(["USDC", "WETH", "ETH", "EURC"]);
 export type Token = z.infer<typeof TokenSchema>;
 
 /**

@@ -77,6 +77,18 @@ async function executeRun(
     );
   }
 
+  if (route.destinationChain !== "ARC_TESTNET") {
+    // The swap leg is executed by swapOnArc, which only operates on Arc.
+    // Bridging anywhere else would strand USDC on a chain where no swap
+    // follows, so refuse before any funds move.
+    return err(
+      new ExecutorError(
+        `Only ARC_TESTNET destinations are executable; got ${route.destinationChain}`,
+        "UNSUPPORTED_ROUTE",
+      ),
+    );
+  }
+
   const preflighted = applyTransition(createExecution(), "preflight");
   if (preflighted.isErr()) {
     return err(preflighted.error);

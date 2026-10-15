@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_PROMPT } from "./system-prompt";
+import { SYSTEM_PROMPT } from "./system-prompt.js";
 
 const MODEL_NAME = "gemini-2.5-flash";
 

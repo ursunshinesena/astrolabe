@@ -6,6 +6,7 @@
  *   pnpm --filter @astrolabe/live-runner live setup-arc-wallet [--write]
  *   pnpm --filter @astrolabe/live-runner live run --amount 1 --to EURC [--execute]
  *   pnpm --filter @astrolabe/live-runner live status <executionId>
+ *   pnpm --filter @astrolabe/live-runner live resume <executionId>
  *
  * `run` is a dry run unless --execute is passed (CLAUDE.md §6.6).
  * Secrets come only from .env.local / process.env and are never printed.
@@ -15,7 +16,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { CIRCLE_BLOCKCHAIN, createWallet, getTokenBalances, listWallets } from "@astrolabe/circle";
-import { loadExecution, runExecution } from "@astrolabe/executor";
+import { loadExecution, resumeExecution, runExecution } from "@astrolabe/executor";
 import { getQuote } from "@astrolabe/pricing";
 import { loadEnvFile, missingKeys } from "./env.js";
 import { ARC_TESTNET_SWAP_TOKENS, buildArcRoute, formatEvidence, formatPreview } from "./route.js";
@@ -124,6 +125,7 @@ async function cmdRun(amount: string, tokenOut: string, execute: boolean): Promi
     walletId: process.env.CIRCLE_WALLET_ID_ETH_SEPOLIA as string,
     sourceAddress: process.env.CIRCLE_WALLET_ADDR_ETH_SEPOLIA as string,
     arcAddress,
+    arcWalletId: process.env.CIRCLE_WALLET_ID_ARC_TESTNET as string,
     baseDir: REPO_ROOT,
   });
   if (outcome.isErr()) {
@@ -143,6 +145,21 @@ async function cmdStatus(id: string | undefined): Promise<void> {
   const loaded = await loadExecution(id, REPO_ROOT);
   if (loaded.isErr()) fail(loaded.error.message);
   console.log(JSON.stringify(loaded.value, null, 2));
+}
+
+async function cmdResume(id: string | undefined): Promise<void> {
+  if (!id) fail("Usage: resume <executionId>");
+  requireEnv(CORE_KEYS);
+  const outcome = await resumeExecution({
+    id,
+    apiKey: process.env.CIRCLE_API_KEY as string,
+    entitySecret: process.env.CIRCLE_ENTITY_SECRET as string,
+    baseDir: REPO_ROOT,
+  });
+  if (outcome.isErr()) fail(`${outcome.error.code}: ${outcome.error.message}`);
+  const { record, action } = outcome.value;
+  console.log(`✓ ${record.id}: ${action} -> ${record.state}`);
+  for (const e of record.evidence ?? []) console.log(`  ${e.step.padEnd(17)} ${e.txHash}`);
 }
 
 async function main(): Promise<void> {
@@ -168,6 +185,8 @@ async function main(): Promise<void> {
       return cmdRun(values.amount, values.to, values.execute);
     case "status":
       return cmdStatus(arg);
+    case "resume":
+      return cmdResume(arg);
     default:
       fail(
         "Commands: check | setup-arc-wallet [--write] | run [--amount N --to EURC --execute] | status <id>",

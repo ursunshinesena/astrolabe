@@ -22,11 +22,12 @@ Optimal Route selected (lowest total cost: gas + bridge fee + slippage)
 apps/web — Dry-run preview shown to user (requires explicit approval)
     │
     ▼
-Executor (planned: packages/executor) — guarded state machine
+packages/executor — guarded state machine (bridge to Arc, swap on Arc)
     │     burn → attestation (polling, 5s–30min) → mint → swap
     │     Every state transition persisted (JSON file store).
-    │     Swap failure → 3 retries (5s/15s/45s) → if still failing,
-    │     USDC left safe on the destination chain (failed_funds_safe).
+    │     Swap failure → up to 3 retries (5s/15s/45s), each only after an
+    │     Arc balance check proves no swap executed → if still failing,
+    │     USDC left safe on Arc (failed_funds_safe).
     ▼
 ExecutionResult (tx hashes, actual output, block explorer links)
 ```
@@ -41,7 +42,8 @@ ExecutionResult (tx hashes, actual output, block explorer links)
 | `@astrolabe/agent` | Routing engine |
 | `@astrolabe/pricing` | DEX quoter wrappers — Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` |
 | `@astrolabe/circle` | Circle SDK wrappers: developer-controlled wallets + App Kit bridge |
-| `@astrolabe/executor` | (planned, M4a) Guarded execution state machine |
+| `@astrolabe/executor` | Guarded execution: state machine, CCTP bridge → Arc swap, balance-guarded retries, resume |
+| `@astrolabe/live-runner` | CLI that drives the executor against testnet (dry run by default) |
 | `@astrolabe/contracts` | LEGACY — Foundry Hook project, not part of the current execution path |
 | `@astrolabe/web` | Next.js 15 chat UI + execution dashboard |
 | `@astrolabe/api` | Hono API server — intent endpoint, execution endpoint, status polling |
@@ -64,4 +66,7 @@ See `docs/decisions/` for ADRs and `docs/m4-design.md` for the execution engine 
 - **Dry-run default:** No real transaction is sent until the user explicitly approves
   the route preview.
 - **Uniswap V3 QuoterV2 for pricing:** Real on-testnet quotes; 0x has no testnet
-  support. Base Sepolia 0.3% pool verified as the primary route (see m4-design.md).
+  support. Used for ETH price comparison on the Sepolia chains.
+- **Swap on Arc, EURC on testnet:** see `docs/decisions/0001-execute-on-arc-with-eurc.md`.
+- **Server-held quotes:** the web client approves a quote id, never a route of its
+  own; one execution per quote id (idempotency), max 3 execution requests / 10s.

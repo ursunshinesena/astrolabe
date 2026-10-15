@@ -1,45 +1,54 @@
-# Demo Script
+# Demo Script (3 minutes)
 
-Three scenarios for the demo video. Each must show an end-to-end flow with real
-testnet tx hashes.
+Three scenarios, all in the web app (`pnpm dev`, http://localhost:3000).
+Before recording: `pnpm --filter @astrolabe/live-runner live check` — the
+Ethereum Sepolia wallet needs USDC (faucet.circle.com) and a little
+Sepolia ETH for the approve/burn gas. Arc needs nothing: gas is USDC.
 
-## Scenario 1 — Single-chain swap (baseline)
+## Scenario 1 — Compare four chains (0:00–0:45)
 
-**Prompt:** "Convert 100 USDC to ETH on Base Sepolia"
+**Prompt:** "Best ETH position with 10 USDC"
 
-Expected flow:
-1. Agent parses: action=swap, source=Base Sepolia, input=USDC, output=ETH, amount=100
-2. Uniswap V3 QuoterV2 quote fetched for Base Sepolia (0.3% pool)
-3. Dry-run preview shown: estimated ETH out, gas cost
-4. User approves
-5. Circle developer-controlled wallet executes swap
-6. UI shows tx hash + Base Sepolia explorer link
+1. Intent card: spend 10 USDC for ETH, funds on Ethereum Sepolia.
+2. Route table: Uniswap V3 quotes from Ethereum, Base and Arbitrum
+   Sepolia side by side, bridge fee included in "net out".
+3. Point out the honest labels: on testnet these are quote-only (Arc has
+   no WETH yet — ADR 0001). Nothing executes without a real path.
 
-## Scenario 2 — Cross-chain bridge + swap (CCTP V2)
+**Talking point:** the router prices every chain in parallel and never
+hides a failed quote.
 
-**Prompt:** "I have USDC on Ethereum Sepolia; send it to Base for the best ETH price
-and buy ETH there"
+## Scenario 2 — Cross-chain guarded execution (0:45–2:15) — the hero
 
-Expected flow:
-1. Agent parses: action=bridge_and_swap, src=Eth Sepolia, dst=Base Sepolia
-2. Route: bridge USDC (CCTP V2 Fast) → swap USDC→ETH on Base
-3. Dry-run preview: bridge fee + swap quote + total cost, estimated 8–20s
-4. User approves
-5. Executor runs the guarded state machine: burn → attestation (polling) → mint,
-   every state transition persisted
-6. Swap executes as a separate step; on failure it retries (3 attempts), and if it
-   still fails, USDC stays safe on Base (failed_funds_safe)
-7. UI shows tx hashes for every step + final ETH balance
+**Prompt:** "Turn 5 USDC into euros on the best route"
 
-## Scenario 3 — Multi-chain optimal routing (4 chains)
+1. Route: Ethereum Sepolia → CCTP V2 → Arc, swap USDC → EURC.
+   Reasoning line: gas on Arc is paid in USDC, no second gas token.
+2. Dry-run box: "Nothing has been sent." Click **Approve & execute**.
+3. Tracker walks the state machine live: pre-flight → burn (Sepolia tx
+   link) → attestation → mint (Arc tx link) → swap (Arc tx link).
+4. Receipt: every tx hash, each opening on its explorer. Open the swap on
+   testnet.arcscan.app on camera.
 
-**Prompt:** "Best ETH position with 1000 USDC"
+**Talking point:** every state is persisted before the next step starts;
+`.astrolabe/executions/<id>.json` is the receipt on disk.
 
-Expected flow:
-1. Agent queries all 4 chains in parallel: Eth Sepolia, Base Sepolia, Arbitrum
-   Sepolia, Arc Testnet
-2. Comparison table shown: price per ETH, total cost (gas + bridge fee), ETA per chain
-3. Agent selects optimal route with justification
-4. User approves
-5. Execution with real-time step tracking in UI
-6. Final: ETH received, total cost breakdown, tx hashes
+## Scenario 3 — Failure is a first-class path (2:15–3:00)
+
+Show, don't break mainnet-style:
+
+1. In the terminal: `pnpm --filter @astrolabe/executor test -- failure-handling`
+   — transient swap failures retried, an unknown outcome stopped without a
+   retry, interruption at every state.
+2. `live status <id>` on a record: plan, history and evidence.
+3. Close on the rule: a swap is retried only when a balance check proves
+   the failed attempt did not execute. Otherwise the USDC stays on Arc and
+   the record says exactly where.
+
+## Live run log
+
+Fill in after each recorded run.
+
+| Date | Execution id | burn | mint | swap |
+|---|---|---|---|---|
+| | | | | |

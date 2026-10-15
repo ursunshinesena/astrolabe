@@ -119,11 +119,13 @@ Arc explorer: https://testnet.arcscan.app
 astrolabe/
 ├── apps/
 │   ├── web/             # Next.js 15 frontend
-│   └── api/             # Hono backend
+│   ├── api/             # Hono backend
+│   └── live-runner/     # CLI: drive the executor on testnet
 ├── packages/
 │   ├── agent/           # Routing engine
 │   ├── chains/          # Chain configs, RPC clients, types
 │   ├── circle/          # Circle SDK wrappers (Wallets, CCTP, App Kit)
+│   ├── executor/        # Guarded execution state machine
 │   ├── contracts/       # LEGACY — Foundry Hook project, not part of the current execution path
 │   ├── intent-parser/   # LLM intent parser (Gemini 2.5 Flash)
 │   ├── pricing/         # DEX quoter wrappers (Uniswap V3 QuoterV2 + Arc App Kit)
@@ -302,9 +304,9 @@ intent parser+UI).
 
 | Milestone | Scope | Exit criterion |
 |---|---|---|
-| M4a 🔵 | Executor core: state machine + burn → attestation → mint → swap | USDC→ETH end-to-end once |
-| M4b | Failure handling | Inject faults → recovery |
-| M5 | Frontend + proof screen | Hero flow in the browser |
+| M4a ✅ code / ⏳ live run | Executor core: state machine + burn → attestation → mint → swap | USDC→EURC on Arc end-to-end once (see ADR 0001) |
+| M4b ✅ | Failure handling | Inject faults → recovery (`failure-handling.test.ts`) |
+| M5 ✅ code / ⏳ live run | Frontend + proof screen | Hero flow in the browser |
 | M6 | Demo + pitch | 3-min video + pitch |
 
 M4 design decisions: `docs/m4-design.md`. The M0–M9 files under `docs/milestones/`
@@ -335,18 +337,10 @@ belong to the old plan (LEGACY) — do not use them as reference.
 
 ## 12. DEMO GOAL
 
-Three scenarios we will show in the demo video:
-
-1. **Simple single-chain:** "Convert 100 USDC to ETH on Base Sepolia" — single-chain
-   baseline
-2. **Cross-chain optimal:** "I have USDC on Ethereum Sepolia; send it to Base for the
-   best ETH price and buy ETH there" — bridge via CCTP V2 Fast, then a guarded swap
-   (if the swap fails, USDC stays safe on the destination chain)
-3. **Multi-chain optimal:** "Best ETH position with 1000 USDC" — the agent compares
-   4 chains, explains its reasoning, the user approves, the agent executes
-
-Every scenario must work end-to-end, every stage must be visually trackable in the UI,
-and testnet tx hashes must be viewable on a block explorer.
+See `docs/demo-script.md`. In short: (1) compare ETH quotes across four
+chains, (2) the hero flow — USDC on Ethereum Sepolia → CCTP V2 → Arc →
+EURC, tracked step by step in the UI with every tx hash on an explorer,
+(3) the failure paths (guarded retries, resume, funds-safe records).
 
 ---
 

@@ -58,6 +58,37 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)
 
+  apps/live-runner:
+    dependencies:
+      '@astrolabe/chains':
+        specifier: workspace:*
+        version: link:../../packages/chains
+      '@astrolabe/circle':
+        specifier: workspace:*
+        version: link:../../packages/circle
+      '@astrolabe/executor':
+        specifier: workspace:*
+        version: link:../../packages/executor
+      '@astrolabe/pricing':
+        specifier: workspace:*
+        version: link:../../packages/pricing
+      neverthrow:
+        specifier: ^8.1.0
+        version: 8.2.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)
+
   apps/web:
     dependencies:
       '@astrolabe/agent':

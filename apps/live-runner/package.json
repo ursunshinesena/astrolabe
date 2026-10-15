@@ -1,0 +1,25 @@
+{
+  "name": "@astrolabe/live-runner",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "live": "tsx src/cli.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@astrolabe/chains": "workspace:*",
+    "@astrolabe/circle": "workspace:*",
+    "@astrolabe/executor": "workspace:*",
+    "@astrolabe/pricing": "workspace:*",
+    "neverthrow": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.0"
+  }
+}

@@ -53,12 +53,15 @@ Fill in after each recorded run.
 |---|---|---|---|---|
 | 2026-10-15 | live runner | 2.1 USDC bridged → 2 USDC swapped → 2.528494 EURC | `exec_2026-10-15T23-15-00-752Z_f2b35b` | < 60 s |
 | 2026-10-15 | API (web flow) | 1.1 USDC bridged → 1 USDC swapped → ~1.21 EURC | `exec_2026-10-15T23-18-25-248Z_1da35c` | 40 s |
+| 2026-10-15 | live runner, live fee | 1.069546 USDC bridged (fee 0.019546 estimated) → 1 USDC swapped → 1.27596 EURC | `exec_2026-10-15T23-47-29-056Z_4fdbbe` | < 60 s |
 
 Run 1 transactions (all confirmed, status 1):
 - approve — [0xbe4cd660…304d](https://sepolia.etherscan.io/tx/0xbe4cd6606c586ba49f3aa38881fd123540069d0d55c57130e4e9b17cd9d8304d)
 - burn — [0xaf0d72e5…8fbe](https://sepolia.etherscan.io/tx/0xaf0d72e5a59bd3002bf90adc6ecf4adf4e817eeaff0a2f262ac51674808f8fbe)
 - mint — [0xaab4f27a…c5af7](https://testnet.arcscan.app/tx/0xaab4f27af0dbddfa5e5a9a1cbd28b7dc5002589c5bb196f50ed7d82692cc5af7)
 - swap — [0xd8456c9e…956c](https://testnet.arcscan.app/tx/0xd8456c9e5a4f8c15bffaa248f62bee531076bc03670391fe2a8fdfabe3fb956c)
+
+Run 3 swap — [0x597015ae…9736](https://testnet.arcscan.app/tx/0x597015ae335abb21c56265306f1077c7b4d0eec9569db5fa77719bd771a59736)
 
 Run 2 transactions:
 - approve — [0xed85959a…1b82](https://sepolia.etherscan.io/tx/0xed85959a851c2d07fa6d17f03b9fef456329e0ec462b43d9d0b1c1088c561b82)

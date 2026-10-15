@@ -1,1 +1,38 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens (CLAUDE.md §5: colors live here as tokens, never as hex in
+ * components). Night-sky palette: an astrolabe reads the stars.
+ */
+@theme {
+  --color-sky: oklch(0.17 0.03 265);
+  --color-panel: oklch(0.22 0.035 265);
+  --color-panel-raised: oklch(0.26 0.04 265);
+  --color-line: oklch(0.34 0.04 265);
+  --color-ink: oklch(0.95 0.01 265);
+  --color-muted: oklch(0.72 0.03 265);
+  --color-brass: oklch(0.8 0.12 80);
+  --color-brass-deep: oklch(0.68 0.13 70);
+  --color-ok: oklch(0.78 0.15 155);
+  --color-warn: oklch(0.82 0.14 85);
+  --color-bad: oklch(0.7 0.18 25);
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  background: var(--color-sky);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  min-height: 100vh;
+  background-image: radial-gradient(
+    circle at 50% -20%,
+    color-mix(in oklch, var(--color-brass) 14%, transparent),
+    transparent 55%
+  );
+}

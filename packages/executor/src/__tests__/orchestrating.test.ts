@@ -175,6 +175,21 @@ describe("runExecution", () => {
     expect(deps.runSwap).not.toHaveBeenCalled();
   });
 
+  it("non-Arc destination: UNSUPPORTED_ROUTE before any funds move", async () => {
+    const deps = makeDeps();
+    const baseRoute: RouteOption = { ...ROUTE, destinationChain: "BASE_SEPOLIA" };
+
+    const outcome = await runExecution({ ...PARAMS, route: baseRoute, baseDir }, deps);
+
+    expect(outcome.isErr()).toBe(true);
+    const error = outcome._unsafeUnwrapErr();
+    expect(error.code).toBe("UNSUPPORTED_ROUTE");
+    expect(error.message).toContain("BASE_SEPOLIA");
+    expect(deps.saveExecution).not.toHaveBeenCalled();
+    expect(deps.runBridge).not.toHaveBeenCalled();
+    expect(deps.runSwap).not.toHaveBeenCalled();
+  });
+
   it("initial persist fails: PERSISTENCE_FAILURE, preflight never runs", async () => {
     const persistError = new ExecutorError("disk full", "PERSISTENCE_FAILURE");
     const deps = makeDeps({ saveExecution: vi.fn(() => errAsync(persistError)) });

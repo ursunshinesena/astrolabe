@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BridgeResult } from "@astrolabe/circle";
 import type { RouteOption } from "@astrolabe/pricing";
-import { errAsync, okAsync } from "neverthrow";
+import { errAsync, ok, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunBridgeParams } from "../bridging.js";
 import { ExecutorError } from "../errors.js";
@@ -154,10 +154,46 @@ describe("runExecution", () => {
       baseDir,
     });
 
-    // The orchestrator itself persists exactly the initial "preflight" state;
-    // later states are persisted inside runBridge/runSwap.
+    // The orchestrator persists the initial "preflight" state and, once the
+    // bridge is done, the bridge evidence; other states are persisted inside
+    // runBridge/runSwap.
     const saveSpy = deps.saveExecution as ReturnType<typeof vi.fn>;
-    expect(saveSpy.mock.calls.map(([r]) => (r as ExecutionRecord).state)).toEqual(["preflight"]);
+    const saved = saveSpy.mock.calls.map(([r]) => r as ExecutionRecord);
+    expect(saved.map((r) => r.state)).toEqual(["preflight", "minting"]);
+    expect(saved[0]?.plan).toMatchObject({
+      arcAddress: "0xarc",
+      tokenOut: "WETH",
+      amountIn: "100",
+    });
+    expect(saved[1]?.evidence).toEqual([
+      { step: "approve", txHash: "0xapprove" },
+      { step: "burn", txHash: "0xburn" },
+      { step: "mint", txHash: "0xmint" },
+    ]);
+  });
+
+  it("with arcWalletId: a balance guard is passed to runSwap with the M4 retry delays", async () => {
+    const getTokenBalances = vi.fn(async () =>
+      ok([{ symbol: "USDC", amount: "150", decimals: 6, tokenAddress: "0x36" }]),
+    );
+    const deps = makeDeps({ getTokenBalances });
+
+    const outcome = await runExecution({ ...PARAMS, arcWalletId: "arc-wallet", baseDir }, deps);
+
+    expect(outcome.isOk()).toBe(true);
+    expect(getTokenBalances).toHaveBeenCalledWith("arc-wallet");
+    const [swapParams, swapDeps] = (deps.runSwap as ReturnType<typeof vi.fn>).mock.calls[0] ?? [];
+    expect(swapParams.retryDelaysMs).toEqual([5_000, 15_000, 45_000]);
+    expect(typeof swapDeps.checkUnswapped).toBe("function");
+  });
+
+  it("without arcWalletId: no balance guard, so runSwap cannot retry", async () => {
+    const deps = makeDeps();
+
+    await runExecution({ ...PARAMS, baseDir }, deps);
+
+    const [, swapDeps] = (deps.runSwap as ReturnType<typeof vi.fn>).mock.calls[0] ?? [];
+    expect(swapDeps.checkUnswapped).toBeUndefined();
   });
 
   it("swap_only route: UNSUPPORTED_ROUTE, no dep is ever called", async () => {

@@ -5,6 +5,7 @@ export type ExecutorErrorCode =
   | "BRIDGE_FAILED"
   | "SWAP_FAILED"
   | "SWAP_UNCERTAIN"
+  | "ATTESTATION_TIMEOUT"
   | "RESUME_UNSUPPORTED"
   | "UNSUPPORTED_ROUTE";
 

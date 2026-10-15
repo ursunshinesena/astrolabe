@@ -2,7 +2,7 @@ import type { AppKitChain, BridgeResult, BridgeStep } from "@astrolabe/circle";
 import { bridgeUSDC } from "@astrolabe/circle";
 import { type Result, ResultAsync, err, ok } from "neverthrow";
 import { type BridgeStepName, ExecutorError } from "./errors.js";
-import { type ExecutionRecord, applyTransition } from "./execution.js";
+import { type ExecutionRecord, applyTransition, withError } from "./execution.js";
 import { saveExecution } from "./persistence.js";
 import type { ExecutorState } from "./states.js";
 
@@ -28,6 +28,9 @@ const STEP_TRANSITIONS: Record<BridgeStepName, ExecutorState | null> = {
   mint: null,
 };
 
+/** CLAUDE.md §6.8: stop waiting for a CCTP attestation after 300s. */
+export const ATTESTATION_TIMEOUT_MS = 300_000;
+
 export type RunBridgeParams = {
   /**
    * The full ExecutionRecord to drive, not just its id. This module (unlike
@@ -47,6 +50,8 @@ export type RunBridgeParams = {
   amount: string;
   /** Passed through to saveExecution; defaults to process.cwd() there. */
   baseDir?: string;
+  /** How long to wait for the attestation after the burn. Default ATTESTATION_TIMEOUT_MS. */
+  attestationTimeoutMs?: number;
 };
 
 export type RunBridgeDeps = {
@@ -124,6 +129,27 @@ async function executeBridge(
     // order their I/O happened to finish.
     let queue: Promise<void> = Promise.resolve();
 
+    // Started when the burn is recorded, stopped when the attestation lands.
+    const timeoutMs = params.attestationTimeoutMs ?? ATTESTATION_TIMEOUT_MS;
+    let fireTimeout: () => void = () => {};
+    const timedOut = new Promise<"timeout">((resolve) => {
+      fireTimeout = () => resolve("timeout");
+    });
+    const watchdog = {
+      timer: null as ReturnType<typeof setTimeout> | null,
+      fired: false,
+      start() {
+        this.timer = setTimeout(() => {
+          this.fired = true;
+          fireTimeout();
+        }, timeoutMs);
+      },
+      stop() {
+        if (this.timer) clearTimeout(this.timer);
+        this.timer = null;
+      },
+    };
+
     const onStep = (step: BridgeStep) => {
       queue = queue.then(async () => {
         if (stepFailure.error || step.state !== "success" || !isBridgeStepName(step.name)) {
@@ -137,6 +163,16 @@ async function executeBridge(
           return;
         }
         current = transitioned.value;
+        if (to === "awaiting_attestation") watchdog.start();
+        if (to === "minting") watchdog.stop();
+        if (watchdog.fired) {
+          // The caller was already told the attestation timed out; keep the
+          // persisted story true as the transfer completes late.
+          current = withError(
+            current,
+            `Attestation arrived after the ${timeoutMs / 1000}s timeout; the bridge continued to ${to}.`,
+          );
+        }
         const saved = await deps.saveExecution(current, params.baseDir);
         if (saved.isErr()) {
           stepFailure.error = saved.error;
@@ -144,16 +180,31 @@ async function executeBridge(
       });
     };
 
-    const bridgeOutcome = await deps.bridgeUSDC({
-      fromChain: params.fromChain,
-      toChain: params.toChain,
-      fromAddress: params.fromAddress,
-      toAddress: params.toAddress,
-      amount: params.amount,
-      onStep,
-    });
+    const raced = await Promise.race([
+      deps.bridgeUSDC({
+        fromChain: params.fromChain,
+        toChain: params.toChain,
+        fromAddress: params.fromAddress,
+        toAddress: params.toAddress,
+        amount: params.amount,
+        onStep,
+      }),
+      timedOut,
+    ]);
+    watchdog.stop();
 
     await queue;
+
+    if (raced === "timeout") {
+      // The burn happened and its USDC is in flight: never failed_funds_safe.
+      // The record stays in awaiting_attestation with the reason written down.
+      const message = `No attestation within ${timeoutMs / 1000}s of the burn; the USDC is in flight to ${params.toChain} and will mint when Circle attests.`;
+      current = withError(current, message);
+      const saved = await deps.saveExecution(current, params.baseDir);
+      if (saved.isErr()) return err(saved.error);
+      return err(new ExecutorError(message, "ATTESTATION_TIMEOUT", undefined, "fetchAttestation"));
+    }
+    const bridgeOutcome = raced;
 
     if (stepFailure.error) {
       return finalizeFailure(current, params, deps, stepFailure.error.message, stepFailure.error);

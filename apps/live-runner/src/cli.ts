@@ -15,7 +15,13 @@ import { appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { CIRCLE_BLOCKCHAIN, createWallet, getTokenBalances, listWallets } from "@astrolabe/circle";
+import {
+  CIRCLE_BLOCKCHAIN,
+  createWallet,
+  estimateBridgeFee,
+  getTokenBalances,
+  listWallets,
+} from "@astrolabe/circle";
 import { loadExecution, resumeExecution, runExecution } from "@astrolabe/executor";
 import { getQuote } from "@astrolabe/pricing";
 import { loadEnvFile, missingKeys } from "./env.js";
@@ -112,7 +118,21 @@ async function cmdRun(amount: string, tokenOut: string, execute: boolean): Promi
   });
   if (quote.isErr()) fail(`Arc quote failed: ${quote.error.message}`);
 
-  const route = buildArcRoute("ETHEREUM_SEPOLIA", quote.value);
+  // Live CCTP fee; fall back to the fixed placeholder if the estimate fails.
+  const fee = await estimateBridgeFee({
+    fromChain: "Ethereum_Sepolia",
+    toChain: "Arc_Testnet",
+    fromAddress: process.env.CIRCLE_WALLET_ADDR_ETH_SEPOLIA as string,
+    toAddress: arcAddress,
+    amount,
+  });
+  if (fee.isErr())
+    console.warn(`(bridge fee estimate failed, using fixed fee: ${fee.error.message})`);
+  const route = buildArcRoute(
+    "ETHEREUM_SEPOLIA",
+    quote.value,
+    fee.isOk() ? { amount: fee.value, source: "estimate" } : undefined,
+  );
   console.log(formatPreview(route));
 
   if (!execute) {

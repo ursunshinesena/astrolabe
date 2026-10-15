@@ -111,3 +111,42 @@ function getField<T = string>(obj: unknown, key: string): T | undefined {
   const val = (obj as Record<string, unknown>)[key];
   return val as T | undefined;
 }
+
+export type BridgeFeeEstimateParams = Omit<BridgeParams, "onStep">;
+
+/**
+ * Sums the USDC fees App Kit expects to deduct from a transfer (CCTP
+ * provider fee + forwarder fee) as a decimal string. Read-only: estimates,
+ * never sends. Source-chain gas is paid in that chain's native token and is
+ * not included.
+ */
+export async function estimateBridgeFee(
+  params: BridgeFeeEstimateParams,
+): Promise<Result<string, Error>> {
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
+  if (!apiKey || !entitySecret) {
+    return err(new Error("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET env vars must be set"));
+  }
+  try {
+    const kit = new AppKit();
+    const adapter = createCircleWalletsAdapter({ apiKey, entitySecret });
+    const estimate = await kit.estimateBridge({
+      from: { adapter, chain: params.fromChain, address: params.fromAddress },
+      to: { adapter, chain: params.toChain, address: params.toAddress, useForwarder: true },
+      amount: params.amount,
+    });
+    const fees = getField<unknown[]>(estimate, "fees") ?? [];
+    let micro = 0n;
+    for (const fee of fees) {
+      if (getField<string>(fee, "token") !== "USDC") continue;
+      const amount = getField<string>(fee, "amount") ?? "0";
+      const [whole = "0", fraction = ""] = amount.split(".");
+      micro += BigInt(whole) * 1_000_000n + BigInt(fraction.slice(0, 6).padEnd(6, "0") || "0");
+    }
+    const fraction = (micro % 1_000_000n).toString().padStart(6, "0");
+    return ok(`${micro / 1_000_000n}.${fraction}`);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
+}

@@ -34,6 +34,15 @@ describe("buildArcRoute", () => {
     expect(formatPreview(route)).toContain("ETHEREUM_SEPOLIA -> ARC_TESTNET");
   });
 
+  it("applies a live bridge fee when given", () => {
+    const route = buildArcRoute("ETHEREUM_SEPOLIA", ARC_QUOTE, {
+      amount: "0.021564",
+      source: "estimate",
+    });
+    expect(route.bridgeFee).toEqual({ amount: "0.021564", source: "estimate" });
+    expect(formatPreview(route)).toContain("10.071564 USDC");
+  });
+
   it("rejects a non-Arc quote and an Arc source", () => {
     expect(() =>
       buildArcRoute("ETHEREUM_SEPOLIA", { ...ARC_QUOTE, chainKey: "BASE_SEPOLIA" }),

@@ -9,7 +9,7 @@ import {
   buildRouteOptions,
   compareRoutes,
 } from "@astrolabe/pricing";
-import type { ResultAsync } from "neverthrow";
+import type { Result, ResultAsync } from "neverthrow";
 
 /** Where the user's USDC lives. The executor bridges from here. */
 export const SOURCE_CHAIN: SupportedChainKey = "ETHEREUM_SEPOLIA";
@@ -48,6 +48,15 @@ export type QuoteOutcome = {
 
 export type QuoteDeps = {
   getQuote: (params: GetQuoteParams) => ResultAsync<SwapQuote, QuoteError>;
+  /**
+   * Live CCTP fee (provider + forwarder, USDC) from the source chain to a
+   * destination. Optional: without it, or when it fails, the fixed
+   * placeholder fee is used.
+   */
+  estimateBridgeFee?: (
+    destination: SupportedChainKey,
+    amount: string,
+  ) => Promise<Result<string, Error>>;
 };
 
 function toView(route: RouteOption): RouteView {
@@ -91,7 +100,22 @@ export async function quoteRoutes(
     else failures.push({ chain, error: res.error.message.split("\n")[0] ?? "Quote failed" });
   }
 
-  const options = buildRouteOptions({ sourceChain: SOURCE_CHAIN, quotes });
+  // One fee per destination, estimated in parallel; each route gets its own.
+  const perChain = await Promise.all(
+    (Object.keys(quotes) as SupportedChainKey[]).map(async (chain) => {
+      const single: QuotesByChain = { [chain]: quotes[chain] };
+      if (chain === SOURCE_CHAIN || !deps.estimateBridgeFee) {
+        return buildRouteOptions({ sourceChain: SOURCE_CHAIN, quotes: single });
+      }
+      const fee = await deps.estimateBridgeFee(chain, params.amount);
+      return buildRouteOptions({
+        sourceChain: SOURCE_CHAIN,
+        quotes: single,
+        ...(fee.isOk() ? { bridgeFee: { amount: fee.value, source: "estimate" as const } } : {}),
+      });
+    }),
+  );
+  const options = perChain.flat();
   if (options.length === 0) {
     return { amount: params.amount, tokenOut: params.tokenOut, routes: [], failures, winner: null };
   }

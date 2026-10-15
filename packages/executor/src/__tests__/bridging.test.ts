@@ -186,3 +186,70 @@ describe("runBridge", () => {
     expect(saveOrder).toEqual(["burning", "awaiting_attestation", "minting"]);
   });
 });
+
+describe("runBridge attestation timeout", () => {
+  it("burn done but no attestation in time: ATTESTATION_TIMEOUT, record stays in awaiting_attestation", async () => {
+    // Fires approve + burn, then the attestation never arrives.
+    const bridgeUSDC: RunBridgeDeps["bridgeUSDC"] = async (params) => {
+      params.onStep?.({ name: "approve", state: "success", txHash: "0xa" });
+      params.onStep?.({ name: "burn", state: "success", txHash: "0xb" });
+      return new Promise(() => {});
+    };
+    const saveSpy = vi.fn((record: ExecutionRecord, dir?: string) => saveExecution(record, dir));
+
+    const outcome = await runBridge(
+      { record: startingRecord(), ...BRIDGE_PARAMS, baseDir, attestationTimeoutMs: 30 },
+      { bridgeUSDC, saveExecution: saveSpy },
+    );
+
+    expect(outcome.isErr()).toBe(true);
+    const error = outcome._unsafeUnwrapErr();
+    expect(error.code).toBe("ATTESTATION_TIMEOUT");
+    expect(error.failedStep).toBe("fetchAttestation");
+    const last = saveSpy.mock.calls.at(-1)?.[0] as ExecutionRecord;
+    expect(last.state).toBe("awaiting_attestation");
+    expect(last.error).toContain("in flight");
+    expect(saveSpy.mock.calls.some(([r]) => r.state === "failed_funds_safe")).toBe(false);
+  });
+
+  it("a late attestation is still persisted, with a note", async () => {
+    let finish: () => void = () => {};
+    const bridgeUSDC: RunBridgeDeps["bridgeUSDC"] = async (params) => {
+      params.onStep?.({ name: "burn", state: "success" });
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      params.onStep?.({ name: "fetchAttestation", state: "success" });
+      return ok(SUCCESS_RESULT);
+    };
+    const saveSpy = vi.fn((record: ExecutionRecord, dir?: string) => saveExecution(record, dir));
+
+    const outcome = await runBridge(
+      { record: startingRecord(), ...BRIDGE_PARAMS, baseDir, attestationTimeoutMs: 20 },
+      { bridgeUSDC, saveExecution: saveSpy },
+    );
+    expect(outcome._unsafeUnwrapErr().code).toBe("ATTESTATION_TIMEOUT");
+
+    finish();
+    await sleep(30);
+    const last = saveSpy.mock.calls.at(-1)?.[0] as ExecutionRecord;
+    expect(last.state).toBe("minting");
+    expect(last.error).toContain("arrived after");
+  });
+
+  it("an attestation inside the window cancels the timer", async () => {
+    const outcome = await runBridge(
+      { record: startingRecord(), ...BRIDGE_PARAMS, baseDir, attestationTimeoutMs: 20 },
+      {
+        bridgeUSDC: makeBridgeUSDC(
+          ["approve", "burn", "fetchAttestation", "mint"],
+          ok(SUCCESS_RESULT),
+        ),
+        saveExecution,
+      },
+    );
+    expect(outcome.isOk()).toBe(true);
+    await sleep(40); // the timer must not fire after success
+    expect(outcome._unsafeUnwrap().record.state).toBe("minting");
+  });
+});

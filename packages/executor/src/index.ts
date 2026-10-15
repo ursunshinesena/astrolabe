@@ -21,6 +21,7 @@ export {
   withEvidence,
 } from "./execution.js";
 export {
+  ATTESTATION_TIMEOUT_MS,
   runBridge,
   type RunBridgeDeps,
   type RunBridgeParams,

@@ -145,3 +145,17 @@ Circle Swap Kit only lists USDC, EURC and cirBTC on Arc Testnet (no
 WETH/ETH), so the executable hero flow is **USDC (Ethereum Sepolia) →
 CCTP V2 → Arc → swap to EURC**. ETH prices on the Uniswap chains remain
 quote-only for comparison.
+
+## Live verification (2026-10-15)
+
+M4a's exit criterion is met. Two runs on testnet, both passing through
+every happy-path state (`preflight → burning → awaiting_attestation →
+minting → swapping → completed`) in under a minute; hashes are in
+`docs/demo-script.md`.
+
+Found and fixed on the way:
+- App Kit 1.5 required a legacy *kit key* for swaps, which Circle no longer
+  issues. Upgraded to App Kit 1.17, which accepts the Circle API key.
+- Bridging exactly the swap amount leaves too little on Arc (bridge and
+  forwarder fees ≈ 0.022 USDC come out of the transfer; swap gas is USDC).
+  The executor now bridges `amountIn + bridge fee + 0.05 USDC` gas reserve.

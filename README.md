@@ -58,6 +58,9 @@ transactions.
 ## Live runner (testnet, from the terminal)
 
 ```bash
+# Build once (and after code changes)
+pnpm build
+
 # Env keys present? Wallet balances?
 pnpm --filter @astrolabe/live-runner live check
 

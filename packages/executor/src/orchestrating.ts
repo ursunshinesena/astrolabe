@@ -22,6 +22,35 @@ import { runPreflight } from "./preflight.js";
 import { makeBalanceGuard } from "./swap-guard.js";
 import { runSwap } from "./swapping.js";
 
+/**
+ * USDC kept back on Arc for the swap's own gas (Arc gas is paid in USDC).
+ * Live runs cost well under a cent per swap; 0.05 leaves ample margin.
+ */
+export const ARC_GAS_RESERVE_USDC = "0.05";
+
+function toMicro(amount: string): bigint {
+  const [whole = "0", fraction = ""] = amount.trim().split(".");
+  return BigInt(whole) * 1_000_000n + BigInt(fraction.slice(0, 6).padEnd(6, "0") || "0");
+}
+
+function fromMicro(micro: bigint): string {
+  const fraction = (micro % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
+  return fraction ? `${micro / 1_000_000n}.${fraction}` : `${micro / 1_000_000n}`;
+}
+
+/**
+ * USDC to bridge so the full swap amount is spendable on Arc: the bridge
+ * and forwarder fees are taken from the transferred amount, and the swap's
+ * gas is paid in USDC on Arc.
+ */
+export function bridgeAmountFor(route: RouteOption): string {
+  return fromMicro(
+    toMicro(route.swapQuote.amountIn) +
+      toMicro(route.bridgeFee.amount) +
+      toMicro(ARC_GAS_RESERVE_USDC),
+  );
+}
+
 /** M4 design: retry a failed swap 3 times, waiting 5s, 15s and 45s. */
 export const SWAP_RETRY_DELAYS_MS = [5_000, 15_000, 45_000] as const;
 
@@ -136,7 +165,7 @@ async function executeRun(
     sourceChain: route.sourceChain,
     destinationChain: route.destinationChain,
     walletId: params.walletId,
-    amountUsdc: route.swapQuote.amountIn,
+    amountUsdc: bridgeAmountFor(route),
   });
   if (preflightOutcome.isErr()) {
     return err(preflightOutcome.error);
@@ -169,7 +198,7 @@ async function executeRun(
     toChain: TO_APPKIT_CHAIN[route.destinationChain],
     fromAddress: params.sourceAddress,
     toAddress: params.arcAddress,
-    amount: route.swapQuote.amountIn,
+    amount: bridgeAmountFor(route),
     baseDir: params.baseDir,
   });
   if (bridged.isErr()) {

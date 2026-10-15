@@ -64,7 +64,7 @@ describe("swapOnArc", () => {
         tokenIn: "USDC",
         tokenOut: "WETH",
         amountIn: "100",
-        config: { slippageBps: 300 },
+        config: { slippageBps: 300, apiKey: "test-api-key" },
       }),
     );
   });
@@ -95,7 +95,7 @@ describe("swapOnArc", () => {
     await swapOnArc(BASE_PARAMS);
 
     expect(MOCK_SWAP).toHaveBeenCalledWith(
-      expect.objectContaining({ config: { slippageBps: 300 } }),
+      expect.objectContaining({ config: { slippageBps: 300, apiKey: "test-api-key" } }),
     );
   });
 
@@ -103,7 +103,7 @@ describe("swapOnArc", () => {
     await swapOnArc({ ...BASE_PARAMS, slippageBps: 50 });
 
     expect(MOCK_SWAP).toHaveBeenCalledWith(
-      expect.objectContaining({ config: { slippageBps: 50 } }),
+      expect.objectContaining({ config: { slippageBps: 50, apiKey: "test-api-key" } }),
     );
   });
 

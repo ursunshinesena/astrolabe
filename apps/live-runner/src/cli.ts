@@ -21,6 +21,7 @@ import { getQuote } from "@astrolabe/pricing";
 import { loadEnvFile, missingKeys } from "./env.js";
 import { ARC_TESTNET_SWAP_TOKENS, buildArcRoute, formatEvidence, formatPreview } from "./route.js";
 
+// Compiled to apps/live-runner/dist/cli.js, three levels below the repo root.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const ENV_PATH = resolve(REPO_ROOT, ".env.local");
 

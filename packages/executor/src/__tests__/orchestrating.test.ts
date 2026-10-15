@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunBridgeParams } from "../bridging.js";
 import { ExecutorError } from "../errors.js";
 import { type ExecutionRecord, applyTransition } from "../execution.js";
-import { type RunExecutionDeps, runExecution } from "../orchestrating.js";
+import { type RunExecutionDeps, bridgeAmountFor, runExecution } from "../orchestrating.js";
 import type { PreflightReport } from "../preflight.js";
 import type { RunSwapParams, RunSwapResult } from "../swapping.js";
 
@@ -134,7 +134,8 @@ describe("runExecution", () => {
       sourceChain: "ETHEREUM_SEPOLIA",
       destinationChain: "ARC_TESTNET",
       walletId: "wallet-1",
-      amountUsdc: "100",
+      // swap amount + 0.05 bridge fee + 0.05 Arc gas reserve
+      amountUsdc: "100.1",
     });
     // Chain keys must be mapped to App Kit names, not passed through.
     expect(bridgeSpy.mock.calls[0]?.[0]).toMatchObject({
@@ -142,7 +143,7 @@ describe("runExecution", () => {
       toChain: "Arc_Testnet",
       fromAddress: "0xsource",
       toAddress: "0xarc",
-      amount: "100",
+      amount: "100.1",
       baseDir,
     });
     expect(swapSpy.mock.calls[0]?.[0]).toMatchObject({
@@ -194,6 +195,17 @@ describe("runExecution", () => {
 
     const [, swapDeps] = (deps.runSwap as ReturnType<typeof vi.fn>).mock.calls[0] ?? [];
     expect(swapDeps.checkUnswapped).toBeUndefined();
+  });
+
+  it("bridgeAmountFor adds the bridge fee and Arc gas reserve exactly", () => {
+    expect(bridgeAmountFor(ROUTE)).toBe("100.1");
+    expect(
+      bridgeAmountFor({
+        ...ROUTE,
+        swapQuote: { ...ROUTE.swapQuote, amountIn: "2.123456" },
+        bridgeFee: { amount: "0.021564", source: "estimate" },
+      }),
+    ).toBe("2.19502");
   });
 
   it("swap_only route: UNSUPPORTED_ROUTE, no dep is ever called", async () => {

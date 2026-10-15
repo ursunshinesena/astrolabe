@@ -1,5 +1,6 @@
 import type { SupportedChainKey } from "@astrolabe/chains";
 import type { BridgeResult, SwapOnArcResult } from "@astrolabe/circle";
+import { bridgeAmountFor } from "@astrolabe/executor";
 import { type RouteOption, type SwapQuote, buildRouteOptions } from "@astrolabe/pricing";
 
 /** Tokens Circle's Swap Kit can trade on Arc Testnet (USDC is also the gas token). */
@@ -30,8 +31,8 @@ export function formatPreview(route: RouteOption): string {
   return [
     "Route preview (dry run — nothing has been sent)",
     `  strategy:        ${route.strategy}`,
-    `  bridge:          ${q.amountIn} USDC  ${route.sourceChain} -> ${route.destinationChain} (CCTP V2)`,
-    `  bridge fee:      ${route.bridgeFee.amount} USDC (${route.bridgeFee.source})`,
+    `  bridge:          ${bridgeAmountFor(route)} USDC  ${route.sourceChain} -> ${route.destinationChain} (CCTP V2)`,
+    `  bridge fee:      ${route.bridgeFee.amount} USDC (${route.bridgeFee.source}) + Arc gas reserve`,
     `  swap on Arc:     ${q.amountIn} ${q.tokenIn} -> ~${q.amountOut} ${q.tokenOut}`,
     `  net out:         ~${route.netAmountOut} ${q.tokenOut}`,
     `  max slippage:    ${route.expectedSlippageBps} bps`,

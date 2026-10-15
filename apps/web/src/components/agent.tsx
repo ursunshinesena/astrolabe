@@ -181,7 +181,8 @@ export function Agent() {
           {winner?.executable && !executionId && (
             <div className="flex flex-col gap-3 rounded-xl border border-brass/40 bg-brass/5 p-5 sm:flex-row sm:items-center">
               <p className="flex-1 text-sm">
-                <b>Dry run.</b> Nothing has been sent. Approving bridges {quote.amount} USDC from{" "}
+                <b>Dry run.</b> Nothing has been sent. Approving bridges{" "}
+                {winner.bridgeAmount ?? quote.amount} USDC (incl. fees and Arc gas) from{" "}
                 {chainLabel(winner.sourceChain)} to {chainLabel(winner.destinationChain)} with CCTP
                 V2, then swaps to {winner.swapQuote.tokenOut} (max slippage{" "}
                 {winner.expectedSlippageBps / 100}%).

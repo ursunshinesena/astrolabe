@@ -159,3 +159,14 @@ Found and fixed on the way:
 - Bridging exactly the swap amount leaves too little on Arc (bridge and
   forwarder fees ≈ 0.022 USDC come out of the transfer; swap gas is USDC).
   The executor now bridges `amountIn + bridge fee + 0.05 USDC` gas reserve.
+
+## Attestation timeout and live fees (2026-10-16)
+
+- `runBridge` stops waiting 300s after the burn (`ATTESTATION_TIMEOUT`,
+  CLAUDE.md §6.8). The record stays in `awaiting_attestation` with the reason
+  written down — the USDC is in flight, so it is never marked funds-safe. A
+  late attestation is still persisted, with a note.
+- Quotes and the live runner use Circle's live bridge fee estimate
+  (`estimateBridgeFee`: CCTP provider + forwarder fee, ≈0.022 USDC to Arc)
+  instead of the fixed 0.05 placeholder, falling back to it if the estimate
+  fails.

@@ -14,9 +14,15 @@ export type {
   WalletInfo,
 } from "./wallets.js";
 
-export { APPKIT_CHAIN, bridgeUSDC } from "./bridge.js";
+export { APPKIT_CHAIN, bridgeUSDC, estimateBridgeFee } from "./bridge.js";
 
-export type { AppKitChain, BridgeParams, BridgeResult, BridgeStep } from "./bridge.js";
+export type {
+  AppKitChain,
+  BridgeFeeEstimateParams,
+  BridgeParams,
+  BridgeResult,
+  BridgeStep,
+} from "./bridge.js";
 
 export { swapOnArc } from "./swap.js";
 

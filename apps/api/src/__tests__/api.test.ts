@@ -1,7 +1,7 @@
 import type { ExecutionRecord } from "@astrolabe/executor";
 import type { SwapQuote } from "@astrolabe/pricing";
 import { QuoteError } from "@astrolabe/pricing";
-import { errAsync, ok, okAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { type AppDeps, createApp } from "../app.js";
 import { ExecutionService, type ExecutionServiceDeps } from "../executions.js";
@@ -181,5 +181,24 @@ describe("RateLimiter", () => {
     expect(limiter.allow("b")).toBe(true);
     t = 10_001;
     expect(limiter.allow("a")).toBe(true);
+  });
+});
+
+describe("quoteRoutes bridge fee", () => {
+  it("uses the live fee estimate per destination and falls back to the fixed fee", async () => {
+    const { quoteRoutes } = await import("../quotes.js");
+    const getQuote = vi.fn(() => okAsync(ARC_QUOTE));
+    const live = await quoteRoutes(
+      { amount: "10", tokenOut: "EURC" },
+      { getQuote, estimateBridgeFee: async () => ok("0.021564") },
+    );
+    expect(live.winner?.bridgeFee).toEqual({ amount: "0.021564", source: "estimate" });
+    expect(live.winner?.bridgeAmount).toBe("10.071564");
+
+    const fallback = await quoteRoutes(
+      { amount: "10", tokenOut: "EURC" },
+      { getQuote, estimateBridgeFee: async () => err(new Error("down")) },
+    );
+    expect(fallback.winner?.bridgeFee).toEqual({ amount: "0.05", source: "fixed" });
   });
 });

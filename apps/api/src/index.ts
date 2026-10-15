@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getTokenBalances } from "@astrolabe/circle";
+import { CIRCLE_CHAIN_NAMES } from "@astrolabe/chains";
+import { type AppKitChain, estimateBridgeFee, getTokenBalances } from "@astrolabe/circle";
 import {
   loadExecution,
   runBridge,
@@ -86,6 +87,18 @@ const app = createApp({
     const rpcUrl = process.env[RPC_ENV[params.chainKey] ?? ""];
     return getQuote(rpcUrl ? { ...params, rpcUrl } : params);
   },
+  ...(wallet
+    ? {
+        estimateBridgeFee: (destination: keyof typeof CIRCLE_CHAIN_NAMES, amount: string) =>
+          estimateBridgeFee({
+            fromChain: CIRCLE_CHAIN_NAMES.ETHEREUM_SEPOLIA as AppKitChain,
+            toChain: CIRCLE_CHAIN_NAMES[destination] as AppKitChain,
+            fromAddress: wallet.sourceAddress,
+            toAddress: destination === "ARC_TESTNET" ? wallet.arcAddress : wallet.sourceAddress,
+            amount,
+          }),
+      }
+    : {}),
   getTokenBalances,
   executions,
   wallet,

@@ -1,7 +1,12 @@
 import type { SupportedChainKey } from "@astrolabe/chains";
 import type { BridgeResult, SwapOnArcResult } from "@astrolabe/circle";
 import { bridgeAmountFor } from "@astrolabe/executor";
-import { type RouteOption, type SwapQuote, buildRouteOptions } from "@astrolabe/pricing";
+import {
+  type BridgeFee,
+  type RouteOption,
+  type SwapQuote,
+  buildRouteOptions,
+} from "@astrolabe/pricing";
 
 /** Tokens Circle's Swap Kit can trade on Arc Testnet (USDC is also the gas token). */
 export const ARC_TESTNET_SWAP_TOKENS = ["EURC", "USDC"] as const;
@@ -11,14 +16,22 @@ export const ARC_TESTNET_SWAP_TOKENS = ["EURC", "USDC"] as const;
  * `sourceChain` to Arc Testnet, then swap there. Uses the shared routing
  * code so fees and net output are computed exactly as the API will.
  */
-export function buildArcRoute(sourceChain: SupportedChainKey, arcQuote: SwapQuote): RouteOption {
+export function buildArcRoute(
+  sourceChain: SupportedChainKey,
+  arcQuote: SwapQuote,
+  bridgeFee?: BridgeFee,
+): RouteOption {
   if (sourceChain === "ARC_TESTNET") {
     throw new Error("Source chain must differ from ARC_TESTNET for a bridge_then_swap route");
   }
   if (arcQuote.chainKey !== "ARC_TESTNET") {
     throw new Error(`Expected an ARC_TESTNET quote, got ${arcQuote.chainKey}`);
   }
-  const [route] = buildRouteOptions({ sourceChain, quotes: { ARC_TESTNET: arcQuote } });
+  const [route] = buildRouteOptions({
+    sourceChain,
+    quotes: { ARC_TESTNET: arcQuote },
+    ...(bridgeFee ? { bridgeFee } : {}),
+  });
   if (!route) {
     throw new Error("Routing produced no option for ARC_TESTNET");
   }

@@ -3,6 +3,7 @@ export {
   createWallet,
   createWalletSet,
   getTokenBalances,
+  listWallets,
   pollTransaction,
 } from "./wallets.js";
 

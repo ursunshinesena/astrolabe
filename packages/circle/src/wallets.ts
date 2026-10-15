@@ -73,6 +73,23 @@ export async function createWallet(
   }
 }
 
+/** Lists the wallets in a wallet set (read-only). */
+export async function listWallets(walletSetId: string): Promise<Result<WalletInfo[], Error>> {
+  try {
+    const client = makeClient();
+    const res = await client.listWallets({ walletSetId });
+    const wallets = (res.data?.wallets ?? []).map((w) => ({
+      id: w.id,
+      address: w.address,
+      blockchain: String(w.blockchain),
+      state: w.state ?? "UNKNOWN",
+    }));
+    return ok(wallets);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
+}
+
 export type TokenBalance = {
   symbol: string;
   amount: string;

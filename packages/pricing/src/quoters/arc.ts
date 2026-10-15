@@ -50,7 +50,9 @@ export async function getArcQuote(params: ArcQuoteParams): Promise<SwapQuote> {
     tokenIn: tokenInUpper as Parameters<typeof kit.estimateSwap>[0]["tokenIn"],
     tokenOut: tokenOutUpper as Parameters<typeof kit.estimateSwap>[0]["tokenOut"],
     amountIn,
-    config: { slippageBps },
+    // The Stablecoin Service authenticates swaps with the Circle API key
+    // (legacy kit keys can no longer be created).
+    config: { slippageBps, apiKey },
   });
 
   return {

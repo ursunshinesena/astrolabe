@@ -77,7 +77,9 @@ export async function swapOnArc(params: SwapOnArcParams): Promise<SwapOnArcResul
     tokenIn: tokenInUpper as Parameters<typeof kit.swap>[0]["tokenIn"],
     tokenOut: tokenOutUpper as Parameters<typeof kit.swap>[0]["tokenOut"],
     amountIn,
-    config: { slippageBps },
+    // The Stablecoin Service authenticates swaps with the Circle API key
+    // (legacy kit keys can no longer be created).
+    config: { slippageBps, apiKey },
   });
 
   return {

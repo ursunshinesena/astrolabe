@@ -1,7 +1,7 @@
 # Demo Script (3 minutes)
 
 Three scenarios, all in the web app (`pnpm dev`, http://localhost:3000).
-Before recording: `pnpm --filter @astrolabe/live-runner live check` — the
+Before recording: `pnpm build && pnpm --filter @astrolabe/live-runner live check` — the
 Ethereum Sepolia wallet needs USDC (faucet.circle.com) and a little
 Sepolia ETH for the approve/burn gas. Arc needs nothing: gas is USDC.
 
@@ -49,6 +49,19 @@ Show, don't break mainnet-style:
 
 Fill in after each recorded run.
 
-| Date | Execution id | burn | mint | swap |
+| Date | Path | Amount | Execution id | Duration |
 |---|---|---|---|---|
-| | | | | |
+| 2026-10-15 | live runner | 2.1 USDC bridged → 2 USDC swapped → 2.528494 EURC | `exec_2026-10-15T23-15-00-752Z_f2b35b` | < 60 s |
+| 2026-10-15 | API (web flow) | 1.1 USDC bridged → 1 USDC swapped → ~1.21 EURC | `exec_2026-10-15T23-18-25-248Z_1da35c` | 40 s |
+
+Run 1 transactions (all confirmed, status 1):
+- approve — [0xbe4cd660…304d](https://sepolia.etherscan.io/tx/0xbe4cd6606c586ba49f3aa38881fd123540069d0d55c57130e4e9b17cd9d8304d)
+- burn — [0xaf0d72e5…8fbe](https://sepolia.etherscan.io/tx/0xaf0d72e5a59bd3002bf90adc6ecf4adf4e817eeaff0a2f262ac51674808f8fbe)
+- mint — [0xaab4f27a…c5af7](https://testnet.arcscan.app/tx/0xaab4f27af0dbddfa5e5a9a1cbd28b7dc5002589c5bb196f50ed7d82692cc5af7)
+- swap — [0xd8456c9e…956c](https://testnet.arcscan.app/tx/0xd8456c9e5a4f8c15bffaa248f62bee531076bc03670391fe2a8fdfabe3fb956c)
+
+Run 2 transactions:
+- approve — [0xed85959a…1b82](https://sepolia.etherscan.io/tx/0xed85959a851c2d07fa6d17f03b9fef456329e0ec462b43d9d0b1c1088c561b82)
+- burn — [0x89bed4bb…7630](https://sepolia.etherscan.io/tx/0x89bed4bb406af192c2dea915ed44497003f745a6f4fbfe9864f1812aad297630)
+- mint — [0x3bfe3286…db5a](https://testnet.arcscan.app/tx/0x3bfe3286394a097002d577d1c600eeab549908915d6bafee3ff7c738040adb5a)
+- swap — [0x19b0c177…4c58](https://testnet.arcscan.app/tx/0x19b0c1777a4700aa34ce9f76ccf9687ea6a9967333c2d501009a224d84244c58)

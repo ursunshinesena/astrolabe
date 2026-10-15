@@ -304,9 +304,9 @@ intent parser+UI).
 
 | Milestone | Scope | Exit criterion |
 |---|---|---|
-| M4a ✅ code / ⏳ live run | Executor core: state machine + burn → attestation → mint → swap | USDC→EURC on Arc end-to-end once (see ADR 0001) |
+| M4a ✅ | Executor core: state machine + burn → attestation → mint → swap | USDC→EURC on Arc end-to-end once (see ADR 0001) |
 | M4b ✅ | Failure handling | Inject faults → recovery (`failure-handling.test.ts`) |
-| M5 ✅ code / ⏳ live run | Frontend + proof screen | Hero flow in the browser |
+| M5 ✅ (API live-verified; record the browser run for the demo) | Frontend + proof screen | Hero flow in the browser |
 | M6 | Demo + pitch | 3-min video + pitch |
 
 M4 design decisions: `docs/m4-design.md`. The M0–M9 files under `docs/milestones/`

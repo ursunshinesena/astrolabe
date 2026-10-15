@@ -19,6 +19,19 @@ const ExecutionRecordSchema = z.object({
   updatedAt: z.string(),
   history: z.array(TransitionRecordSchema),
   error: z.string().nullable(),
+  evidence: z
+    .array(z.object({ step: z.string(), txHash: z.string(), explorerUrl: z.string().optional() }))
+    .optional(),
+  plan: z
+    .object({
+      arcAddress: z.string(),
+      arcWalletId: z.string().optional(),
+      tokenIn: z.string(),
+      tokenOut: z.string(),
+      amountIn: z.string(),
+      slippageBps: z.number().int().optional(),
+    })
+    .optional(),
 });
 
 function executionsDir(baseDir: string): string {

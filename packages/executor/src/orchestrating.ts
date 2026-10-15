@@ -4,15 +4,26 @@ import {
   type AppKitChain,
   type BridgeResult,
   type SwapOnArcResult,
+  getTokenBalances,
 } from "@astrolabe/circle";
+import { swapOnArc } from "@astrolabe/circle";
 import type { RouteOption } from "@astrolabe/pricing";
 import { type Result, ResultAsync, err, ok } from "neverthrow";
 import { runBridge } from "./bridging.js";
 import { ExecutorError } from "./errors.js";
-import { type ExecutionRecord, applyTransition, createExecution } from "./execution.js";
+import {
+  type ExecutionRecord,
+  applyTransition,
+  createExecution,
+  withEvidence,
+} from "./execution.js";
 import { saveExecution } from "./persistence.js";
 import { runPreflight } from "./preflight.js";
+import { makeBalanceGuard } from "./swap-guard.js";
 import { runSwap } from "./swapping.js";
+
+/** M4 design: retry a failed swap 3 times, waiting 5s, 15s and 45s. */
+export const SWAP_RETRY_DELAYS_MS = [5_000, 15_000, 45_000] as const;
 
 // SUPPORTED_CHAINS and APPKIT_CHAIN use different key names for the same
 // chains (ETHEREUM_SEPOLIA vs ETH_SEPOLIA, ARBITRUM_SEPOLIA vs ARB_SEPOLIA),
@@ -32,6 +43,11 @@ export type RunExecutionParams = {
   sourceAddress: string;
   /** Address on Arc that receives the bridged USDC; runSwap operates on it. */
   arcAddress: string;
+  /**
+   * Circle wallet id of arcAddress. When set, failed swaps are retried
+   * (SWAP_RETRY_DELAYS_MS) after a balance check proves no swap executed.
+   */
+  arcWalletId?: string;
   /** Passed through to saveExecution; defaults to process.cwd() there. */
   baseDir?: string;
 };
@@ -41,6 +57,10 @@ export type RunExecutionDeps = {
   runBridge: typeof runBridge;
   runSwap: typeof runSwap;
   saveExecution: typeof saveExecution;
+  /** Balance reader for the swap retry guard; defaults to Circle's API. */
+  getTokenBalances?: typeof getTokenBalances;
+  /** Injected in tests to skip real retry waits. */
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export type RunExecutionResult = {
@@ -89,7 +109,18 @@ async function executeRun(
     );
   }
 
-  const preflighted = applyTransition(createExecution(), "preflight");
+  const fresh: ExecutionRecord = {
+    ...createExecution(),
+    plan: {
+      arcAddress: params.arcAddress,
+      ...(params.arcWalletId ? { arcWalletId: params.arcWalletId } : {}),
+      tokenIn: route.swapQuote.tokenIn,
+      tokenOut: route.swapQuote.tokenOut,
+      amountIn: route.swapQuote.amountIn,
+      slippageBps: route.expectedSlippageBps,
+    },
+  };
+  const preflighted = applyTransition(fresh, "preflight");
   if (preflighted.isErr()) {
     return err(preflighted.error);
   }
@@ -144,23 +175,56 @@ async function executeRun(
   if (bridged.isErr()) {
     return err(bridged.error);
   }
-  const { record: bridgedRecord, result: bridgeResult } = bridged.value;
+  const { result: bridgeResult } = bridged.value;
+
+  // Write the bridge's tx hashes into the record before the swap starts, so
+  // the evidence survives even if this process dies mid-swap.
+  const evidenced = await deps.saveExecution(
+    withEvidence(
+      bridged.value.record,
+      bridgeResult.steps.map((step) => ({ step: step.name, txHash: step.txHash })),
+    ),
+    params.baseDir,
+  );
+  if (evidenced.isErr()) {
+    return err(withBridgeEvidence(evidenced.error, bridgeResult));
+  }
+  const bridgedRecord = evidenced.value;
+
+  const checkUnswapped = params.arcWalletId
+    ? await makeBalanceGuard({
+        walletId: params.arcWalletId,
+        token: route.swapQuote.tokenIn,
+        amountIn: route.swapQuote.amountIn,
+        getTokenBalances: deps.getTokenBalances ?? getTokenBalances,
+      })
+    : null;
 
   // runBridge left the record in "minting"; runSwap drives it through
   // minting -> swapping -> completed itself.
-  const swapped = await deps.runSwap({
-    record: bridgedRecord,
-    fromAddress: params.arcAddress,
-    tokenIn: route.swapQuote.tokenIn,
-    tokenOut: route.swapQuote.tokenOut,
-    amountIn: route.swapQuote.amountIn,
-    // Preflight's config check guarantees these are set before any on-chain
-    // call; the fallback only satisfies the type.
-    apiKey: process.env.CIRCLE_API_KEY ?? "",
-    entitySecret: process.env.CIRCLE_ENTITY_SECRET ?? "",
-    slippageBps: route.expectedSlippageBps,
-    baseDir: params.baseDir,
-  });
+  const swapDeps = {
+    swapOnArc,
+    saveExecution: deps.saveExecution,
+    ...(checkUnswapped ? { checkUnswapped } : {}),
+    ...(deps.sleep ? { sleep: deps.sleep } : {}),
+  };
+  const swapped = await deps.runSwap(
+    {
+      record: bridgedRecord,
+      fromAddress: params.arcAddress,
+      tokenIn: route.swapQuote.tokenIn,
+      tokenOut: route.swapQuote.tokenOut,
+      amountIn: route.swapQuote.amountIn,
+      // Preflight's config check guarantees these are set before any on-chain
+      // call; the fallback only satisfies the type.
+      apiKey: process.env.CIRCLE_API_KEY ?? "",
+      entitySecret: process.env.CIRCLE_ENTITY_SECRET ?? "",
+      slippageBps: route.expectedSlippageBps,
+      baseDir: params.baseDir,
+      retryDelaysMs: SWAP_RETRY_DELAYS_MS,
+    },
+    swapDeps,
+  );
   if (swapped.isErr()) {
     // The bridge already completed on-chain — its tx hashes are evidence
     // that must never be lost, so append them to whatever the swap phase

@@ -104,3 +104,44 @@ Verified on Base Sepolia via read-only `cast` calls (factory `getPool`, pool `li
 - Quote proof: 1 USDC → ~0.00184 WETH (non-zero, no revert, ~90k gas estimate).
 - Testnet prices deviate from market (expected; no arbitrage incentive). The 500 tier shows heavy price skew consistent with shallow liquidity — avoid.
 - Conclusion: **Ethereum Sepolia → Base Sepolia route confirmed.** Fallback (Arbitrum Sepolia) not needed. Executor will use QuoterV2 for pre-swap price checks.
+
+## M4b — failure handling as implemented (2026-10)
+
+### Swap retries are balance-guarded
+A thrown `kit.swap` error cannot tell "never sent" from "sent, response
+lost", so a blind retry could swap twice. Before each retry the executor
+re-reads the Arc wallet's input-token balance and compares it with a
+snapshot taken just before the first attempt. Only if less than half of
+`amountIn` has left the wallet (a real swap spends all of it; a reverted
+one only USDC gas) is the swap retried, after 5s / 15s / 45s.
+
+- Retries exhausted → `failed_funds_safe`, `error` names the attempts and
+  the Arc address holding the USDC.
+- Balance cannot be read, or has dropped → `SWAP_UNCERTAIN`: the record
+  stays in `swapping` with the reason written down. It is never marked
+  funds-safe on a claim we cannot back.
+
+### Evidence and plan are persisted
+`ExecutionRecord` now carries `plan` (Arc address and wallet id, tokens,
+amount, slippage) from the start, and `evidence` (every tx hash with its
+step) as soon as the bridge finishes and when the swap completes.
+
+### Resume (`resumeExecution`, `live-runner resume <id>`)
+| Persisted state | Action |
+|---|---|
+| `completed`, `failed_funds_safe` | nothing |
+| `created`, `preflight` | no funds moved → closed as `failed_funds_safe` |
+| `burning`, `awaiting_attestation` | `RESUME_UNSUPPORTED` — App Kit cannot pick up a CCTP transfer halfway; the recorded burn tx is the starting point |
+| `minting` | if `amountIn` is visible on Arc, run the guarded swap; otherwise `RESUME_UNSUPPORTED` |
+| `swapping` | `RESUME_UNSUPPORTED` — an earlier attempt may have executed |
+
+### Destination guard
+Routes whose destination is not `ARC_TESTNET` are rejected with
+`UNSUPPORTED_ROUTE` before anything is persisted, because the swap leg
+always runs on Arc.
+
+### Testnet token reality
+Circle Swap Kit only lists USDC, EURC and cirBTC on Arc Testnet (no
+WETH/ETH), so the executable hero flow is **USDC (Ethereum Sepolia) →
+CCTP V2 → Arc → swap to EURC**. ETH prices on the Uniswap chains remain
+quote-only for comparison.

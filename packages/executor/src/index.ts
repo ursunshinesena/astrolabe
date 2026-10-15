@@ -1,8 +1,8 @@
 /**
  * @astrolabe/executor — guarded cross-chain execution engine.
  *
- * State machine + JSON persistence for the M4a executor core.
- * CCTP flow (burn → attestation → mint → swap) lands in follow-up PRs.
+ * State machine + JSON persistence, CCTP bridge -> Arc swap orchestration,
+ * balance-guarded swap retries and resume after interruption.
  */
 
 export {
@@ -13,8 +13,12 @@ export {
 export {
   applyTransition,
   createExecution,
+  type EvidenceRecord,
   type ExecutionRecord,
+  type SwapPlan,
   type TransitionRecord,
+  withError,
+  withEvidence,
 } from "./execution.js";
 export {
   runBridge,
@@ -24,6 +28,7 @@ export {
 } from "./bridging.js";
 export {
   runExecution,
+  SWAP_RETRY_DELAYS_MS,
   type RunExecutionDeps,
   type RunExecutionParams,
   type RunExecutionResult,
@@ -37,6 +42,14 @@ export {
   type PreflightReport,
   runPreflight,
 } from "./preflight.js";
+export {
+  type ResumeAction,
+  type ResumeExecutionDeps,
+  type ResumeExecutionParams,
+  type ResumeExecutionResult,
+  resumeExecution,
+} from "./resume.js";
+export { makeBalanceGuard } from "./swap-guard.js";
 export {
   runSwap,
   type RunSwapDeps,

@@ -14,7 +14,14 @@ export type {
   WalletInfo,
 } from "./wallets.js";
 
-export { APPKIT_CHAIN, bridgeUSDC, estimateBridgeFee } from "./bridge.js";
+export {
+  APPKIT_CHAIN,
+  BridgeFailure,
+  bridgeUSDC,
+  estimateBridgeFee,
+  retryBridge,
+  toJsonSafe,
+} from "./bridge.js";
 
 export type {
   AppKitChain,

@@ -5,7 +5,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { SwapOnArcResult, TokenBalance } from "@astrolabe/circle";
+import { BridgeFailure, type SwapOnArcResult, type TokenBalance } from "@astrolabe/circle";
 import { err, ok } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ExecutionRecord, applyTransition, createExecution } from "../execution.js";
@@ -184,6 +184,16 @@ describe("resumeExecution", () => {
       saveExecution,
       runSwap: vi.fn(),
       swapOnArc: vi.fn(async () => SUCCESS),
+      retryBridge: vi.fn(async () =>
+        ok({
+          state: "success",
+          amount: "10.07",
+          steps: [
+            { name: "burn", state: "success", txHash: "0xburn" },
+            { name: "mint", state: "success", txHash: "0xmint" },
+          ],
+        }),
+      ),
       getTokenBalances: async () => ok(usdc("10")),
       sleep: noSleep,
       ...overrides,
@@ -235,6 +245,42 @@ describe("resumeExecution", () => {
       record: { state: "completed" },
     });
     expect(d.swapOnArc).toHaveBeenCalledTimes(1);
+  });
+
+  it("bridge failed after the burn: retryBridge finishes it, then the swap runs", async () => {
+    const record = {
+      ...recordIn("awaiting_attestation"),
+      evidence: [{ step: "burn", txHash: "0xburn" }],
+      bridgeRaw: { state: "error" },
+    };
+    await saveExecution(record, baseDir);
+    const d = deps({ runSwap });
+
+    const out = await resume(record.id, d);
+
+    expect(d.retryBridge).toHaveBeenCalledWith({ state: "error" });
+    const result = out._unsafeUnwrap();
+    expect(result.action).toBe("bridged_and_swapped");
+    expect(result.record.state).toBe("completed");
+    expect(result.record.bridgeRaw).toBeUndefined();
+    expect(result.record.evidence?.map((e) => e.step)).toEqual(["burn", "mint", "swap"]);
+  });
+
+  it("bridge retry fails again: BRIDGE_FAILED, newer App Kit result kept, no swap", async () => {
+    const record = { ...recordIn("minting"), bridgeRaw: { state: "error", attempt: 1 } };
+    await saveExecution(record, baseDir);
+    const newer = { state: "error", attempt: 2 };
+    const d = deps({
+      retryBridge: vi.fn(async () => err(new BridgeFailure("mint reverted", newer))),
+    });
+
+    const out = await resume(record.id, d);
+
+    expect(out._unsafeUnwrapErr().code).toBe("BRIDGE_FAILED");
+    expect(d.swapOnArc).not.toHaveBeenCalled();
+    const saved = (await loadExecution(record.id, baseDir))._unsafeUnwrap();
+    expect(saved.state).toBe("minting");
+    expect(saved.bridgeRaw).toEqual(newer);
   });
 
   it("interrupted in minting before the USDC arrived: RESUME_UNSUPPORTED", async () => {

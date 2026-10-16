@@ -24,7 +24,57 @@ export type BridgeResult = {
   state: string;
   amount: string;
   steps: BridgeStep[];
+  /** App Kit's own result, JSON-safe; what App Kit retryBridge needs to resume. */
+  raw?: unknown;
 };
+
+/** A bridge that App Kit reported as failed, carrying its result for retryBridge. */
+export class BridgeFailure extends Error {
+  constructor(
+    message: string,
+    public readonly raw: unknown,
+  ) {
+    super(message);
+    this.name = "BridgeFailure";
+  }
+}
+
+/** Deep copy with bigints as strings, so the result can be persisted as JSON. */
+export function toJsonSafe(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value, (_key, v) => (typeof v === "bigint" ? v.toString() : v)));
+}
+
+function mapResult(result: unknown, fallbackAmount: string): BridgeResult {
+  const rawSteps = getField<unknown[]>(result, "steps") ?? [];
+  return {
+    state: getField<string>(result, "state") ?? "unknown",
+    amount: getField<string>(result, "amount") ?? fallbackAmount,
+    steps: rawSteps.map((s) => {
+      const step = s as Record<string, unknown>;
+      return {
+        name: getField<string>(step, "name") ?? "unknown",
+        state: getField<string>(step, "state") ?? "unknown",
+        txHash: getField<string>(step, "txHash"),
+      };
+    }),
+    raw: toJsonSafe(result),
+  };
+}
+
+function failureOf(result: unknown): BridgeFailure {
+  const steps = getField<unknown[]>(result, "steps") ?? [];
+  const failedStep = steps.find(
+    (s) => getField<string>(s as Record<string, unknown>, "state") === "error",
+  ) as Record<string, unknown> | undefined;
+  const stepName = failedStep ? getField<string>(failedStep, "name") : "unknown";
+  const stepErr = failedStep
+    ? (getField<string>(failedStep, "error") ?? getField<string>(failedStep, "errorMessage"))
+    : undefined;
+  return new BridgeFailure(
+    `Bridge failed at step "${stepName}": ${stepErr ?? "Unknown bridge error"}`,
+    toJsonSafe(result),
+  );
+}
 
 export type BridgeParams = {
   fromChain: AppKitChain;
@@ -75,32 +125,9 @@ export async function bridgeUSDC(params: BridgeParams): Promise<Result<BridgeRes
     });
 
     if (result.state === "error") {
-      const steps = getField<unknown[]>(result, "steps") ?? [];
-      const failedStep = steps.find(
-        (s) => getField<string>(s as Record<string, unknown>, "state") === "error",
-      );
-      const stepName = failedStep
-        ? getField<string>(failedStep as Record<string, unknown>, "name")
-        : "unknown";
-      const stepErr = failedStep
-        ? getField<string>(failedStep as Record<string, unknown>, "error")
-        : "Unknown bridge error";
-      return err(new Error(`Bridge failed at step "${stepName}": ${stepErr}`));
+      return err(failureOf(result));
     }
-
-    const rawSteps = getField<unknown[]>(result, "steps") ?? [];
-    return ok({
-      state: getField<string>(result, "state") ?? "unknown",
-      amount: getField<string>(result, "amount") ?? params.amount,
-      steps: rawSteps.map((s) => {
-        const step = s as Record<string, unknown>;
-        return {
-          name: getField<string>(step, "name") ?? "unknown",
-          state: getField<string>(step, "state") ?? "unknown",
-          txHash: getField<string>(step, "txHash"),
-        };
-      }),
-    });
+    return ok(mapResult(result, params.amount));
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));
   }
@@ -146,6 +173,31 @@ export async function estimateBridgeFee(
     }
     const fraction = (micro % 1_000_000n).toString().padStart(6, "0");
     return ok(`${micro / 1_000_000n}.${fraction}`);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
+}
+
+/**
+ * Resumes a failed bridge from the phase it stopped in (App Kit retryBridge),
+ * given the raw result persisted from the failed attempt. Completed steps are
+ * not repeated, so a burned transfer is minted rather than burned again.
+ */
+export async function retryBridge(raw: unknown): Promise<Result<BridgeResult, Error>> {
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
+  if (!apiKey || !entitySecret) {
+    return err(new Error("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET env vars must be set"));
+  }
+  try {
+    const kit = new AppKit();
+    const adapter = createCircleWalletsAdapter({ apiKey, entitySecret });
+    const result = await kit.retryBridge(raw as Parameters<typeof kit.retryBridge>[0], {
+      from: adapter,
+      to: adapter,
+    });
+    if (result.state === "error") return err(failureOf(result));
+    return ok(mapResult(result, getField<string>(raw, "amount") ?? ""));
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));
   }

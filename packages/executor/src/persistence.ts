@@ -32,6 +32,7 @@ const ExecutionRecordSchema = z.object({
       slippageBps: z.number().int().optional(),
     })
     .optional(),
+  bridgeRaw: z.unknown().optional(),
 });
 
 function executionsDir(baseDir: string): string {

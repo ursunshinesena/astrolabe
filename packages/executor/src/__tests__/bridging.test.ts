@@ -1,7 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { BridgeParams, BridgeResult, BridgeStep } from "@astrolabe/circle";
+import {
+  BridgeFailure,
+  type BridgeParams,
+  type BridgeResult,
+  type BridgeStep,
+} from "@astrolabe/circle";
 import { type Result, ResultAsync, err, ok } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type RunBridgeDeps, runBridge } from "../bridging.js";
@@ -129,12 +134,13 @@ describe("runBridge", () => {
     });
   });
 
-  it("failure at mint: ends in failed_funds_safe with BRIDGE_FAILED / failedStep mint", async () => {
+  it("failure at mint (after the burn): stays in flight with App Kit's result, never funds-safe", async () => {
     const saveSpy = vi.fn((record: ExecutionRecord, dir?: string) => saveExecution(record, dir));
+    const raw = { state: "error", steps: [{ name: "burn", state: "success", txHash: "0xb" }] };
     const deps: RunBridgeDeps = {
       bridgeUSDC: makeBridgeUSDC(
         ["approve", "burn", "fetchAttestation"],
-        err(new Error('Bridge failed at step "mint": insufficient attestation')),
+        err(new BridgeFailure('Bridge failed at step "mint": insufficient attestation', raw)),
       ),
       saveExecution: saveSpy,
     };
@@ -148,15 +154,10 @@ describe("runBridge", () => {
     expect(error.failedStep).toBe("mint");
 
     const lastSaved = saveSpy.mock.calls.at(-1)?.[0] as ExecutionRecord;
-    expect(lastSaved.state).toBe("failed_funds_safe");
-    // The record progressed through minting (via fetchAttestation) before failing.
-    expect(lastSaved.history.map((h) => h.to)).toEqual([
-      "preflight",
-      "burning",
-      "awaiting_attestation",
-      "minting",
-      "failed_funds_safe",
-    ]);
+    expect(lastSaved.state).toBe("minting");
+    expect(lastSaved.bridgeRaw).toEqual(raw);
+    expect(lastSaved.error).toContain("in flight");
+    expect(saveSpy.mock.calls.some(([r]) => r.state === "failed_funds_safe")).toBe(false);
   });
 
   it("serializes persistence writes in step order even when a later save resolves faster", async () => {
@@ -235,6 +236,31 @@ describe("runBridge attestation timeout", () => {
     const last = saveSpy.mock.calls.at(-1)?.[0] as ExecutionRecord;
     expect(last.state).toBe("minting");
     expect(last.error).toContain("arrived after");
+  });
+
+  it("a transfer that fails after the timeout still leaves its App Kit result for resume", async () => {
+    let fail: () => void = () => {};
+    const raw = { state: "error", steps: [] };
+    const bridgeUSDC: RunBridgeDeps["bridgeUSDC"] = async (params) => {
+      params.onStep?.({ name: "burn", state: "success", txHash: "0xb" });
+      await new Promise<void>((resolve) => {
+        fail = resolve;
+      });
+      return err(new BridgeFailure('Bridge failed at step "fetchAttestation": expired', raw));
+    };
+    const saveSpy = vi.fn((record: ExecutionRecord, dir?: string) => saveExecution(record, dir));
+
+    const outcome = await runBridge(
+      { record: startingRecord(), ...BRIDGE_PARAMS, baseDir, attestationTimeoutMs: 20 },
+      { bridgeUSDC, saveExecution: saveSpy },
+    );
+    expect(outcome._unsafeUnwrapErr().code).toBe("ATTESTATION_TIMEOUT");
+
+    fail();
+    await sleep(30);
+    const last = saveSpy.mock.calls.at(-1)?.[0] as ExecutionRecord;
+    expect(last.state).toBe("awaiting_attestation");
+    expect(last.bridgeRaw).toEqual(raw);
   });
 
   it("an attestation inside the window cancels the timer", async () => {

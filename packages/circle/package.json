@@ -22,6 +22,7 @@
     "@circle-fin/app-kit": "^1.17.0",
     "@circle-fin/developer-controlled-wallets": "^3.0.0",
     "neverthrow": "^8.1.0",
+    "viem": "^2.21.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

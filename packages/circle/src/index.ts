@@ -34,3 +34,14 @@ export type {
 export { swapOnArc } from "./swap.js";
 
 export type { SwapOnArcParams, SwapOnArcResult } from "./swap.js";
+
+export {
+  ERC8004_ARC_TESTNET,
+  agentIdFromLogs,
+  agentMetadataURI,
+  giveAgentFeedback,
+  readAgent,
+  registerAgent,
+  sendArcUsdc,
+  uuidFrom,
+} from "./erc8004.js";

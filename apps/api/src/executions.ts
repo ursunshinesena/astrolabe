@@ -24,6 +24,8 @@ export type ExecutionServiceDeps = {
   ) => ResultAsync<RunExecutionResult, ExecutorError>;
   saveExecution: (r: ExecutionRecord, dir?: string) => ResultAsync<ExecutionRecord, ExecutorError>;
   loadExecution: (id: string, dir?: string) => ResultAsync<ExecutionRecord, ExecutorError>;
+  /** Called after an execution completes (e.g. to record ERC-8004 reputation). */
+  onCompleted?: (record: ExecutionRecord) => Promise<void>;
   now?: () => number;
 };
 
@@ -99,6 +101,9 @@ export class ExecutionService {
         { saveExecution: save },
       )
       .then((outcome) => {
+        if (outcome.isOk()) {
+          void this.deps.onCompleted?.(outcome.value.record);
+        }
         if (outcome.isErr()) {
           // Remember the reason even when the executor rejected before
           // persisting anything (e.g. an unsupported route).

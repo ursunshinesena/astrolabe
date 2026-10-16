@@ -14,6 +14,8 @@ export type AppDeps = QuoteDeps & {
   executions: ExecutionService;
   /** Circle wallets per chain. Execution needs at least the Arc wallet. */
   wallets: Wallets;
+  /** ERC-8004 identity of the agent on Arc, when registered. */
+  agentId?: string;
   corsOrigin?: string;
   limiter?: RateLimiter;
 };
@@ -43,7 +45,7 @@ const EXPLORER_TX: Record<string, string> = {
 /** The chain a recorded step's transaction lives on: approve/burn on the source. */
 function stepChain(step: string, sourceChain: string | undefined): string | null {
   if (step === "approve" || step === "burn") return sourceChain ?? "ETHEREUM_SEPOLIA";
-  if (step === "mint" || step === "swap") return "ARC_TESTNET";
+  if (step === "mint" || step === "swap" || step === "reputation") return "ARC_TESTNET";
   return null;
 }
 
@@ -64,6 +66,7 @@ export function createApp(deps: AppDeps): Hono {
       network: "testnet",
       fxHub: "ARC_TESTNET",
       executionEnabled: deps.wallets.ARC_TESTNET !== undefined,
+      agentId: deps.agentId ?? null,
       wallets: Object.fromEntries(
         FUNDING_CHAINS.map((chain) => [chain, deps.wallets[chain]?.address ?? null]),
       ),

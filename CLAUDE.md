@@ -56,27 +56,28 @@ do not use hardcoded values.
 
 ## 2. PROJECT SUMMARY
 
-**Product:** Cross-Market Execution Agent. The user types a natural-language intent
-("buy the best ETH with 100 USDC"). The agent:
+**Product:** Stablecoin FX agent with Arc as its settlement hub (ADR 0002). The user
+types a conversion ("turn 5 USDC into euros"). The agent:
 
-1. Parses the intent into a structured action via LLM
-2. Queries price, gas, and CCTP fees across multiple chains in parallel
-3. Selects the optimal route (swap on source chain vs. bridge+swap on another chain)
+1. Parses the intent into a structured USDC ↔ EURC conversion via LLM
+2. Quotes the FX rate on Arc and reads every funding chain in parallel (balance,
+   native gas, live CCTP fee)
+3. Picks where to fund it from: funds already on Arc (no bridge) or the cheapest
+   chain that can cover it, bridged with CCTP V2
 4. Gets user approval (dry-run preview)
-5. Executes with guarded execution: burn → attestation → mint → swap. Every step is
-   persisted in a state machine; if the swap fails it retries (3 attempts), and if it
-   still fails, USDC is left safe on the destination chain.
+5. Executes with guarded execution: [burn → attestation → mint] → swap on Arc.
+   Every step is persisted; swaps retry only when a balance check proves the failed
+   attempt did not execute; post-burn bridge failures resume with App Kit retryBridge
+6. Rates the conversion against the agent's ERC-8004 identity on Arc
 
-**Category:** Cross-Market Execution Systems.
-**Pitch:** "One intent. Four chains. Guarded execution with deterministic refund paths."
+**Pitch:** "Dollars to euros, from any chain. Settled on Arc, with guarded execution."
 
-### Why this idea wins
-- **CCTP V2** is at the core of the product — the sponsor's flagship feature
-- We don't merely "support" **Arc**; we exploit its USDC-as-gas advantage for the agent
-  (no separate gas-token balance to manage)
-- We put an intelligent routing layer on top of **App Kit** — we don't rebuild bridging
-  from scratch, we use existing infrastructure cleverly
-- Optional: **ERC-8004** agent identity gives the agent on-chain reputation
+### Why this idea fits Arc
+- Arc is stablecoin-native: the FX happens where gas is USDC — no second gas token
+- **CCTP V2** brings liquidity to Arc from wherever it sits; routing is about
+  liquidity location, with real fees
+- We build on **App Kit** (bridge, swap, estimates, retry) instead of rebuilding it
+- **ERC-8004** gives the agent an on-chain identity and receipts-backed reputation
 
 ---
 
@@ -85,13 +86,13 @@ do not use hardcoded values.
 | Layer | Choice | Why |
 |---|---|---|
 | Monorepo | Turborepo + pnpm | Fast builds, parallel tasks |
-| Smart contracts | Foundry (Solidity 0.8.24+) | Testing and fork support |
 | Backend | Hono (Node 20+, TypeScript strict) | Fast, edge-ready |
 | Frontend | Next.js 15 (App Router) + Tailwind + shadcn/ui | Fast development, modern UX |
 | LLM | Gemini Flash (Google AI Studio) | Tool use + structured output |
 | Wallet | Circle Programmable Wallets (developer-controlled) | UX score, sponsor integration |
 | Cross-chain | **CCTP V2** (Bridge Kit SDK) + Arc App Kit | Use V2 — V1 phase-out July 31, 2026 |
-| DEX aggregation | Uniswap V3 QuoterV2 + Arc App Kit `estimateSwap` | Real quotes on testnet, no 0x |
+| FX | Arc App Kit `estimateSwap` / `swap` (USDC ↔ EURC) | Arc Testnet swaps stablecoins only |
+| Agent identity | ERC-8004 registries on Arc | On-chain identity and reputation |
 | Validation | zod | Runtime schema |
 | Linting | biome | One tool, fast |
 | Hosting | Vercel (web) + Railway (api) | Sufficient for the MVP |
@@ -103,10 +104,10 @@ go stale; MCP has the final word.**
 
 | Chain | Notes |
 |---|---|
-| Ethereum Sepolia | Primary reference chain |
-| Base Sepolia | L2, demos CCTP Fast |
-| Arbitrum Sepolia | CCTP V2 + Uniswap V3 deploy, replaced Fuji |
-| **Arc Testnet** | USDC-as-gas, sub-second finality, agentic economy primitives |
+| **Arc Testnet** | FX hub: USDC ↔ EURC swaps, USDC-as-gas, ERC-8004 identity |
+| Ethereum Sepolia | Funding source (CCTP V2) |
+| Base Sepolia | Funding source (CCTP V2) |
+| Arbitrum Sepolia | Funding source (CCTP V2) |
 
 Faucet: https://faucet.circle.com
 Arc explorer: https://testnet.arcscan.app
@@ -122,14 +123,11 @@ astrolabe/
 │   ├── api/             # Hono backend
 │   └── live-runner/     # CLI: drive the executor on testnet
 ├── packages/
-│   ├── agent/           # Routing engine
-│   ├── chains/          # Chain configs, RPC clients, types
-│   ├── circle/          # Circle SDK wrappers (Wallets, CCTP, App Kit)
+│   ├── chains/          # Chain configs, CCTP domains, USDC addresses
+│   ├── circle/          # Circle SDK wrappers (Wallets, CCTP, App Kit, ERC-8004)
 │   ├── executor/        # Guarded execution state machine
-│   ├── contracts/       # LEGACY — Foundry Hook project, not part of the current execution path
 │   ├── intent-parser/   # LLM intent parser (Gemini 2.5 Flash)
-│   ├── pricing/         # DEX quoter wrappers (Uniswap V3 QuoterV2 + Arc App Kit)
-│   └── types/           # Shared TS types (Intent, Route, ExecutionResult)
+│   └── pricing/         # Arc FX quotes + funding planner
 ├── docs/
 │   ├── architecture.md  # Architecture decisions
 │   ├── m4-design.md     # Execution engine design (M4)
@@ -145,9 +143,9 @@ astrolabe/
 ```
 
 ### Package dependency rules
-- `apps/web` → `packages/agent`, `packages/types`, `packages/chains`, `packages/circle`
-- `apps/api` → `packages/agent`, `packages/types`, `packages/chains`, `packages/circle`, `packages/pricing`
-- `packages/agent` → `packages/types`, `packages/chains`, `packages/pricing`
+- `apps/*` → any `packages/*`
+- `packages/executor` → `chains`, `circle`, `pricing`
+- `packages/pricing` → `chains`, `circle` (types)
 - NO circular dependencies between `packages/*`
 
 ---
@@ -161,17 +159,11 @@ astrolabe/
 - Use the `Result<T, E>` pattern (neverthrow) in async functions. Try/catch only at
   outer boundaries.
 
-### Solidity
-- Foundry. `forge fmt` and `forge test` are mandatory in CI.
-- NatSpec comments on every external/public function.
-- Slither static analysis in CI.
-- Reentrancy guard on every external state-changing function.
-- Custom errors (no revert strings).
-
 ### Frontend
 - Server components by default. Client components only where interactivity is required.
 - Don't override shadcn/ui components — add variants.
-- Colors are defined as tokens in `tailwind.config`; hardcoded hex is FORBIDDEN.
+- Colors are defined as tokens (Tailwind v4 `@theme` in `globals.css`); hardcoded hex
+  in components is FORBIDDEN.
 
 ### Naming
 - Files: `kebab-case.ts`
@@ -222,7 +214,6 @@ astrolabe/
 ### Tests
 - Minimum 1 happy-path test for every new function.
 - Minimum 1 failure-path test for every function that moves funds.
-- Fuzz tests for smart contracts (Foundry `invariant` or `fuzz`).
 - Network mocks via MSW (frontend) and nock (backend) for integration tests.
 
 ### Documentation
@@ -243,16 +234,17 @@ GEMINI_API_KEY=
 CIRCLE_API_KEY=
 CIRCLE_ENTITY_SECRET=
 CIRCLE_WALLET_SET_ID=
+# Wallets per chain (written by `live-runner setup-wallets --write`)
+CIRCLE_WALLET_ID_ARC_TESTNET= / CIRCLE_WALLET_ADDR_ARC_TESTNET=
+CIRCLE_WALLET_ID_ETH_SEPOLIA= / CIRCLE_WALLET_ADDR_ETH_SEPOLIA=
+CIRCLE_WALLET_ID_BASE_SEPOLIA= / CIRCLE_WALLET_ADDR_BASE_SEPOLIA=
+CIRCLE_WALLET_ID_ARB_SEPOLIA= / CIRCLE_WALLET_ADDR_ARB_SEPOLIA=
+# ERC-8004 (written by `live-runner register-agent --write`)
+ERC8004_AGENT_ID=
+CIRCLE_WALLET_ID_ARC_VALIDATOR= / CIRCLE_WALLET_ADDR_ARC_VALIDATOR=
 
 # RPC (testnet)
-ETH_SEPOLIA_RPC_URL=
-BASE_SEPOLIA_RPC_URL=
-ARB_SEPOLIA_RPC_URL=
 ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network
-
-# Deployment
-PRIVATE_KEY_DEPLOYER=   # testnet ONLY
-ETHERSCAN_API_KEY=
 
 # App
 NEXT_PUBLIC_API_URL=http://localhost:3001
@@ -287,8 +279,8 @@ in `packages/config`. The app must not start with a wrong env — fail fast.
 
 **LLM:**
 - ❌ Trusting the LLM to return free text. ✅ Structured output via tool use.
-- ❌ Guessing on ambiguous intents. ✅ Ask a clarifying question (e.g. "By ETH do you
-  mean mainnet ETH, or WETH on Base?").
+- ❌ Guessing on ambiguous intents. ✅ Ask a clarifying question (e.g. "How much USDC
+  would you like to convert to EURC?").
 
 **General:**
 - ❌ Assuming USDC has 18 decimals. ✅ USDC is 6 decimals — `parseUnits(amount, 6)`.
@@ -307,7 +299,8 @@ intent parser+UI).
 | M4a ✅ | Executor core: state machine + burn → attestation → mint → swap | USDC→EURC on Arc end-to-end once (see ADR 0001) |
 | M4b ✅ | Failure handling | Inject faults → recovery (`failure-handling.test.ts`) |
 | M5 ✅ (API live-verified; record the browser run for the demo) | Frontend + proof screen | Hero flow in the browser |
-| M6 | Demo + pitch | 3-min video + pitch |
+| M5b ✅ | Stablecoin FX pivot + ERC-8004 identity (ADR 0002) | Arc-funded, bridged and reverse conversions live |
+| M6 🔵 | Demo + pitch | 3-min video + pitch |
 
 M4 design decisions: `docs/m4-design.md`. The M0–M9 files under `docs/milestones/`
 belong to the old plan (LEGACY) — do not use them as reference.
@@ -337,10 +330,10 @@ belong to the old plan (LEGACY) — do not use them as reference.
 
 ## 12. DEMO GOAL
 
-See `docs/demo-script.md`. In short: (1) compare ETH quotes across four
-chains, (2) the hero flow — USDC on Ethereum Sepolia → CCTP V2 → Arc →
-EURC, tracked step by step in the UI with every tx hash on an explorer,
-(3) the failure paths (guarded retries, resume, funds-safe records).
+See `docs/demo-script.md`. In short: (1) the agent funds a conversion from
+the cheapest chain and bridges it to Arc with CCTP V2, (2) the same request
+funded straight from Arc when the funds are there, with the agent's ERC-8004
+identity, (3) the failure paths (guarded retries, resume, funds-safe records).
 
 ---
 

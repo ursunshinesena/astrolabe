@@ -1,70 +1,78 @@
 # Demo Script (3 minutes)
 
-Three scenarios, all in the web app (`pnpm dev`, http://localhost:3000).
-Before recording: `pnpm build && pnpm --filter @astrolabe/live-runner live check` — the
-Ethereum Sepolia wallet needs USDC (faucet.circle.com) and a little
-Sepolia ETH for the approve/burn gas. Arc needs nothing: gas is USDC.
+Everything runs in the web app (`pnpm build && pnpm dev`, http://localhost:3000).
+Before recording: `pnpm --filter @astrolabe/live-runner live check`. The
+Ethereum Sepolia wallet needs USDC and a little Sepolia ETH; keep a small
+USDC balance (≈1 USDC) on Arc so scenario 2 shows the agent choosing Arc.
 
-## Scenario 1 — Compare four chains (0:00–0:45)
+## Scenario 1 — The agent decides where to fund it (0:00–1:15)
 
-**Prompt:** "Best ETH position with 10 USDC"
+**Prompt:** "Turn 2 USDC into euros"
 
-1. Intent card: spend 10 USDC for ETH, funds on Ethereum Sepolia.
-2. Route table: Uniswap V3 quotes from Ethereum, Base and Arbitrum
-   Sepolia side by side, bridge fee included in "net out".
-3. Point out the honest labels: on testnet these are quote-only (Arc has
-   no WETH yet — ADR 0001). Nothing executes without a real path.
+1. Intent line: convert 2 USDC → EURC on Arc. Rate line from Arc App Kit.
+2. "Where to fund it from" table: Arc (needs 2.05, has ~1), **Ethereum
+   Sepolia ★** with its live CCTP fee, Base Sepolia (not enough / no gas),
+   Arbitrum Sepolia (empty). Every row says why.
+3. Dry-run box → **Approve & execute**.
+4. Tracker: pre-flight → burn on Sepolia → attestation → mint on Arc →
+   swap on Arc. Each tx links to its explorer. ≈45 s end to end.
+5. Receipt: all hashes; open the swap on testnet.arcscan.app.
 
-**Talking point:** the router prices every chain in parallel and never
-hides a failed quote.
+**Talking point:** the decision is about where the liquidity is; Arc is
+where the FX happens and gas is USDC.
 
-## Scenario 2 — Cross-chain guarded execution (0:45–2:15) — the hero
+## Scenario 2 — Same request, different answer (1:15–2:00)
 
-**Prompt:** "Turn 5 USDC into euros on the best route"
+**Prompt:** "Turn 1 USDC into euros"
 
-1. Route: Ethereum Sepolia → CCTP V2 → Arc, swap USDC → EURC.
-   Reasoning line: gas on Arc is paid in USDC, no second gas token.
-2. Dry-run box: "Nothing has been sent." Click **Approve & execute**.
-3. Tracker walks the state machine live: pre-flight → burn (Sepolia tx
-   link) → attestation → mint (Arc tx link) → swap (Arc tx link).
-4. Receipt: every tx hash, each opening on its explorer. Open the swap on
-   testnet.arcscan.app on camera.
+1. Now Arc has enough: **Arc Testnet ★, fee none**, Ethereum Sepolia
+   second with its CCTP fee.
+2. Approve: tracker shows only pre-flight → swap. Done in seconds.
+3. Receipt line: "Funded from Arc Testnet — no bridge needed".
+4. Point at the header badge: **Agent #897344 · ERC-8004 identity on Arc**
+   — each completed conversion is rated on-chain, pointing at its swap.
 
-**Talking point:** every state is persisted before the next step starts;
-`.astrolabe/executions/<id>.json` is the receipt on disk.
+## Scenario 3 — Failure is a first-class path (2:00–3:00)
 
-## Scenario 3 — Failure is a first-class path (2:15–3:00)
-
-Show, don't break mainnet-style:
-
-1. In the terminal: `pnpm --filter @astrolabe/executor test -- failure-handling`
-   — transient swap failures retried, an unknown outcome stopped without a
-   retry, interruption at every state.
-2. `live status <id>` on a record: plan, history and evidence.
-3. Close on the rule: a swap is retried only when a balance check proves
-   the failed attempt did not execute. Otherwise the USDC stays on Arc and
-   the record says exactly where.
+1. "Buy ETH with 10 USDC" → a clear refusal: Astrolabe converts USDC ↔ EURC
+   on Arc. No fake routes.
+2. Terminal: `pnpm --filter @astrolabe/executor test -- failure-handling`
+   — transient swap failures retried, unknown outcomes stopped, interrupted
+   runs resumed, a post-burn bridge failure finished with `retryBridge`.
+3. Close: a swap is retried only when a balance check proves the last
+   attempt didn't happen; otherwise the record says exactly where the money is.
 
 ## Live run log
 
-Fill in after each recorded run.
+All transactions confirmed (receipt status 1).
 
-| Date | Path | Amount | Execution id | Duration |
-|---|---|---|---|---|
-| 2026-10-15 | live runner | 2.1 USDC bridged → 2 USDC swapped → 2.528494 EURC | `exec_2026-10-15T23-15-00-752Z_f2b35b` | < 60 s |
-| 2026-10-15 | API (web flow) | 1.1 USDC bridged → 1 USDC swapped → ~1.21 EURC | `exec_2026-10-15T23-18-25-248Z_1da35c` | 40 s |
-| 2026-10-15 | live runner, live fee | 1.069546 USDC bridged (fee 0.019546 estimated) → 1 USDC swapped → 1.27596 EURC | `exec_2026-10-15T23-47-29-056Z_4fdbbe` | < 60 s |
+### Stablecoin FX routing (2026-10-16)
 
-Run 1 transactions (all confirmed, status 1):
-- approve — [0xbe4cd660…304d](https://sepolia.etherscan.io/tx/0xbe4cd6606c586ba49f3aa38881fd123540069d0d55c57130e4e9b17cd9d8304d)
-- burn — [0xaf0d72e5…8fbe](https://sepolia.etherscan.io/tx/0xaf0d72e5a59bd3002bf90adc6ecf4adf4e817eeaff0a2f262ac51674808f8fbe)
-- mint — [0xaab4f27a…c5af7](https://testnet.arcscan.app/tx/0xaab4f27af0dbddfa5e5a9a1cbd28b7dc5002589c5bb196f50ed7d82692cc5af7)
-- swap — [0xd8456c9e…956c](https://testnet.arcscan.app/tx/0xd8456c9e5a4f8c15bffaa248f62bee531076bc03670391fe2a8fdfabe3fb956c)
+| Run | Funded from | Conversion | Execution id |
+|---|---|---|---|
+| A | Arc (no bridge) | 1 EURC → 1.214694 USDC | `exec_2026-10-16T00-21-28-363Z_f2c774` |
+| B | Arc, chosen over Ethereum Sepolia | 1 USDC → 1.292256 EURC | `exec_2026-10-16T00-21-45-481Z_fdd4dc` |
+| C | Ethereum Sepolia via API, CCTP V2 | 2 USDC → EURC (2.071872 bridged), ≈45 s | API run |
+| D | Arc, rated on ERC-8004 | 0.5 EURC → 0.60735 USDC | `exec_2026-10-16T00-30-23-366Z_80846c` |
 
-Run 3 swap — [0x597015ae…9736](https://testnet.arcscan.app/tx/0x597015ae335abb21c56265306f1077c7b4d0eec9569db5fa77719bd771a59736)
+- A swap — [0x3608a739…413f](https://testnet.arcscan.app/tx/0x3608a739cc3e36fdd0a888515111e55577e67f13d06992ed9d92c0775f7b413f)
+- B swap — [0x54cdf7e6…5577](https://testnet.arcscan.app/tx/0x54cdf7e66493365990a9fa8c4332d772e4939b45eda6b51331c2d2fa34b95577)
+- C approve — [0xdb8c069e…5ac8](https://sepolia.etherscan.io/tx/0xdb8c069e11771ee4f846b5330cf9b87ad0c67678e6f42093be1fda270fc65ac8)
+- C burn — [0x9abf10ca…7c03](https://sepolia.etherscan.io/tx/0x9abf10cab54989dbb8a3b2c15d3840c51ce8e815b750101bfdb59bc1652b7c03)
+- C mint — [0x7bde0ea6…d253](https://testnet.arcscan.app/tx/0x7bde0ea6c9b65fa2d03af23a2645a0c0e024b4f44557d77bf834f5adbadbd253)
+- C swap — [0xbd04b6b0…007d](https://testnet.arcscan.app/tx/0xbd04b6b07c92f016f0b7a739fddb653850c82dcb582f866a017307af201a007d)
+- D swap — [0x2d244272…20f5](https://testnet.arcscan.app/tx/0x2d244272dabd209108e2261c41922fb44bc7dbee08727b53f5f0a2b08c4720f5)
+- D reputation — [0x0e97c0c8…e425](https://testnet.arcscan.app/tx/0x0e97c0c812047900793584f2ebed722da33196175affbf0a6beb66d1f626e425)
+- Agent #897344 registered — [0x18d4d619…7019](https://testnet.arcscan.app/tx/0x18d4d6194364d85c6a6fb08be3e8ca839f97ee7110acc1e19722fce71ed67019)
 
-Run 2 transactions:
-- approve — [0xed85959a…1b82](https://sepolia.etherscan.io/tx/0xed85959a851c2d07fa6d17f03b9fef456329e0ec462b43d9d0b1c1088c561b82)
-- burn — [0x89bed4bb…7630](https://sepolia.etherscan.io/tx/0x89bed4bb406af192c2dea915ed44497003f745a6f4fbfe9864f1812aad297630)
-- mint — [0x3bfe3286…db5a](https://testnet.arcscan.app/tx/0x3bfe3286394a097002d577d1c600eeab549908915d6bafee3ff7c738040adb5a)
-- swap — [0x19b0c177…4c58](https://testnet.arcscan.app/tx/0x19b0c1777a4700aa34ce9f76ccf9687ea6a9967333c2d501009a224d84244c58)
+### First executor runs (2026-10-15, Ethereum Sepolia → Arc)
+
+| Run | Conversion | Execution id |
+|---|---|---|
+| 1 | 2 USDC → 2.528494 EURC (2.1 bridged) | `exec_2026-10-15T23-15-00-752Z_f2b35b` |
+| 2 | 1 USDC → ~1.21 EURC via API (1.1 bridged) | `exec_2026-10-15T23-18-25-248Z_1da35c` |
+| 3 | 1 USDC → 1.27596 EURC, live fee 0.019546 | `exec_2026-10-15T23-47-29-056Z_4fdbbe` |
+
+- Run 1 burn — [0xaf0d72e5…8fbe](https://sepolia.etherscan.io/tx/0xaf0d72e5a59bd3002bf90adc6ecf4adf4e817eeaff0a2f262ac51674808f8fbe), mint — [0xaab4f27a…5af7](https://testnet.arcscan.app/tx/0xaab4f27af0dbddfa5e5a9a1cbd28b7dc5002589c5bb196f50ed7d82692cc5af7), swap — [0xd8456c9e…956c](https://testnet.arcscan.app/tx/0xd8456c9e5a4f8c15bffaa248f62bee531076bc03670391fe2a8fdfabe3fb956c)
+- Run 2 swap — [0x19b0c177…4c58](https://testnet.arcscan.app/tx/0x19b0c1777a4700aa34ce9f76ccf9687ea6a9967333c2d501009a224d84244c58)
+- Run 3 swap — [0x597015ae…9736](https://testnet.arcscan.app/tx/0x597015ae335abb21c56265306f1077c7b4d0eec9569db5fa77719bd771a59736)

@@ -1,17 +1,7 @@
-import type { SwapQuote } from "@astrolabe/pricing";
+import type { QuoteOutcome } from "@astrolabe/pricing";
 import { describe, expect, it } from "vitest";
 import { missingKeys, parseEnv } from "../env.js";
-import { buildArcRoute, formatEvidence, formatPreview } from "../route.js";
-
-const ARC_QUOTE: SwapQuote = {
-  chainKey: "ARC_TESTNET",
-  tokenIn: "USDC",
-  tokenOut: "EURC",
-  amountIn: "10",
-  amountOut: "8.5",
-  gasEstimateWei: "0",
-  source: "arc-app-kit",
-};
+import { formatEvidence, formatPlan } from "../route.js";
 
 describe("parseEnv", () => {
   it("parses keys, skips comments and strips quotes", () => {
@@ -24,30 +14,64 @@ describe("parseEnv", () => {
   });
 });
 
-describe("buildArcRoute", () => {
-  it("builds a bridge_then_swap route to Arc with the fee applied", () => {
-    const route = buildArcRoute("ETHEREUM_SEPOLIA", ARC_QUOTE);
-    expect(route.strategy).toBe("bridge_then_swap");
-    expect(route.sourceChain).toBe("ETHEREUM_SEPOLIA");
-    expect(route.destinationChain).toBe("ARC_TESTNET");
-    expect(Number(route.netAmountOut)).toBeLessThan(8.5);
-    expect(formatPreview(route)).toContain("ETHEREUM_SEPOLIA -> ARC_TESTNET");
+describe("formatPlan", () => {
+  const swapQuote = {
+    chainKey: "ARC_TESTNET" as const,
+    tokenIn: "USDC",
+    tokenOut: "EURC",
+    amountIn: "5",
+    amountOut: "6.38",
+    gasEstimateWei: "0",
+    source: "arc-app-kit" as const,
+  };
+  const winner = {
+    strategy: "bridge_then_swap" as const,
+    sourceChain: "ETHEREUM_SEPOLIA" as const,
+    destinationChain: "ARC_TESTNET" as const,
+    swapQuote,
+    bridgeFee: { amount: "0.0195", source: "estimate" as const },
+    netAmountOut: "6.38",
+    expectedSlippageBps: 300,
+    requiredAmount: "5.0695",
+    balance: "13",
+    costUsdc: "0.0195",
+    feasible: true,
+    executable: true,
+    bridgeAmount: "5.0695",
+  };
+  const plan: QuoteOutcome = {
+    amount: "5",
+    tokenIn: "USDC",
+    tokenOut: "EURC",
+    rate: "1.2760",
+    amountOut: "6.38",
+    routes: [
+      winner,
+      {
+        ...winner,
+        strategy: "swap_only",
+        sourceChain: "ARC_TESTNET",
+        feasible: false,
+        executable: false,
+        reason: "Needs 5.05 USDC, has 1",
+      },
+    ],
+    winner,
+  };
+
+  it("shows the rate, every source and why, and the choice", () => {
+    const text = formatPlan(plan);
+    expect(text).toContain("rate 1.2760");
+    expect(text).toContain("★ Ethereum Sepolia");
+    expect(text).toContain("bridge 5.0695 USDC");
+    expect(text).toContain("Needs 5.05 USDC, has 1");
+    expect(text).toContain("chosen:   Ethereum Sepolia");
   });
 
-  it("applies a live bridge fee when given", () => {
-    const route = buildArcRoute("ETHEREUM_SEPOLIA", ARC_QUOTE, {
-      amount: "0.021564",
-      source: "estimate",
-    });
-    expect(route.bridgeFee).toEqual({ amount: "0.021564", source: "estimate" });
-    expect(formatPreview(route)).toContain("10.071564 USDC");
-  });
-
-  it("rejects a non-Arc quote and an Arc source", () => {
-    expect(() =>
-      buildArcRoute("ETHEREUM_SEPOLIA", { ...ARC_QUOTE, chainKey: "BASE_SEPOLIA" }),
-    ).toThrow();
-    expect(() => buildArcRoute("ARC_TESTNET", ARC_QUOTE)).toThrow();
+  it("says so when no plan could be made", () => {
+    expect(formatPlan({ ...plan, routes: [], winner: null, error: "no quote" })).toBe(
+      "No plan: no quote",
+    );
   });
 });
 

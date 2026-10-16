@@ -12,7 +12,6 @@ describe("@astrolabe/chains exports", () => {
     expect(chains.CCTP_DOMAIN_IDS).toBeDefined();
     expect(chains.CIRCLE_CHAIN_NAMES).toBeDefined();
     expect(chains.USDC_ADDRESSES).toBeDefined();
-    expect(chains.UNISWAP_V3_ADDRESSES).toBeDefined();
     expect(chains.arcTestnet).toBeDefined();
     expect(typeof chains.createRpcClient).toBe("function");
   });

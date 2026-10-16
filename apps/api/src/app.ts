@@ -1,28 +1,31 @@
 import type { TokenBalance } from "@astrolabe/circle";
 import type { IntentResult } from "@astrolabe/intent-parser";
+import { FUNDING_CHAINS, type QuoteDeps, type Wallets, quoteRoutes } from "@astrolabe/pricing";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Result } from "neverthrow";
 import { z } from "zod";
-import type { ExecutionService, WalletConfig } from "./executions.js";
-import { type QuoteDeps, type QuoteOutcome, quoteRoutes } from "./quotes.js";
+import type { ExecutionService } from "./executions.js";
 import { RateLimiter } from "./rate-limit.js";
 
 export type AppDeps = QuoteDeps & {
   parseIntent: (text: string) => Promise<IntentResult>;
   getTokenBalances: (walletId: string) => Promise<Result<TokenBalance[], Error>>;
   executions: ExecutionService;
-  /** Null when the Circle wallets are not configured — execution is then disabled. */
-  wallet: WalletConfig | null;
+  /** Circle wallets per chain. Execution needs at least the Arc wallet. */
+  wallets: Wallets;
   corsOrigin?: string;
   limiter?: RateLimiter;
 };
 
 const IntentBody = z.object({ text: z.string().min(1).max(500) });
-const QuoteBody = z.object({
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string"),
-  tokenOut: z.string().min(1),
-});
+const QuoteBody = z
+  .object({
+    amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string"),
+    tokenIn: z.enum(["USDC", "EURC"]).default("USDC"),
+    tokenOut: z.enum(["USDC", "EURC"]),
+  })
+  .refine((b) => b.tokenIn !== b.tokenOut, "tokenIn and tokenOut must differ");
 const ExecuteBody = z.object({
   quoteId: z.string().uuid(),
   // Dry-run is the default: nothing is sent unless the client explicitly
@@ -37,13 +40,12 @@ const EXPLORER_TX: Record<string, string> = {
   ARC_TESTNET: "https://testnet.arcscan.app/tx/",
 };
 
-/** Which chain each recorded step's transaction lives on (source → Arc route). */
-const STEP_CHAIN: Record<string, string> = {
-  approve: "ETHEREUM_SEPOLIA",
-  burn: "ETHEREUM_SEPOLIA",
-  mint: "ARC_TESTNET",
-  swap: "ARC_TESTNET",
-};
+/** The chain a recorded step's transaction lives on: approve/burn on the source. */
+function stepChain(step: string, sourceChain: string | undefined): string | null {
+  if (step === "approve" || step === "burn") return sourceChain ?? "ETHEREUM_SEPOLIA";
+  if (step === "mint" || step === "swap") return "ARC_TESTNET";
+  return null;
+}
 
 function clientKey(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -60,24 +62,21 @@ export function createApp(deps: AppDeps): Hono {
   app.get("/api/config", (c) =>
     c.json({
       network: "testnet",
-      sourceChain: "ETHEREUM_SEPOLIA",
-      executionEnabled: deps.wallet !== null,
-      sourceAddress: deps.wallet?.sourceAddress ?? null,
-      arcAddress: deps.wallet?.arcAddress ?? null,
+      fxHub: "ARC_TESTNET",
+      executionEnabled: deps.wallets.ARC_TESTNET !== undefined,
+      wallets: Object.fromEntries(
+        FUNDING_CHAINS.map((chain) => [chain, deps.wallets[chain]?.address ?? null]),
+      ),
       explorers: EXPLORER_TX,
     }),
   );
 
   app.get("/api/balances", async (c) => {
-    if (!deps.wallet) return c.json({ error: "Wallets are not configured" }, 503);
-    const entries: Array<[string, string | undefined]> = [
-      ["ETHEREUM_SEPOLIA", deps.wallet.walletId],
-      ["ARC_TESTNET", deps.wallet.arcWalletId],
-    ];
     const out: Record<string, TokenBalance[] | { error: string }> = {};
-    for (const [chain, id] of entries) {
-      if (!id) continue;
-      const res = await deps.getTokenBalances(id);
+    for (const chain of FUNDING_CHAINS) {
+      const wallet = deps.wallets[chain];
+      if (!wallet) continue;
+      const res = await deps.getTokenBalances(wallet.walletId);
       out[chain] = res.isOk() ? res.value : { error: res.error.message };
     }
     return c.json(out);
@@ -94,10 +93,7 @@ export function createApp(deps: AppDeps): Hono {
     if (!body.success) {
       return c.json({ error: body.error.errors[0]?.message ?? "Invalid body" }, 400);
     }
-    const outcome: QuoteOutcome = await quoteRoutes(
-      { ...body.data, ...(deps.wallet ? { arcAddress: deps.wallet.arcAddress } : {}) },
-      deps,
-    );
+    const outcome = await quoteRoutes(body.data, deps.wallets, deps);
     const quoteId = deps.executions.storeQuote(outcome);
     return c.json({ quoteId, ...outcome });
   });
@@ -106,13 +102,14 @@ export function createApp(deps: AppDeps): Hono {
     if (!limiter.allow(clientKey(c.req.raw))) {
       return c.json({ error: "Too many execution requests — max 3 per 10 seconds" }, 429);
     }
-    if (!deps.wallet)
-      return c.json({ error: "Execution is disabled: wallets not configured" }, 503);
+    if (!deps.wallets.ARC_TESTNET) {
+      return c.json({ error: "Execution is disabled: no Arc wallet configured" }, 503);
+    }
     const body = ExecuteBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: "Body must be { quoteId, approved: true }" }, 400);
     }
-    const started = await deps.executions.start(body.data.quoteId, deps.wallet);
+    const started = await deps.executions.start(body.data.quoteId, deps.wallets);
     if (!started.ok) return c.json({ error: started.error }, started.status);
     return c.json({ executionId: started.executionId }, 202);
   });
@@ -122,8 +119,9 @@ export function createApp(deps: AppDeps): Hono {
     if (!/^[\w-]+$/.test(id)) return c.json({ error: "Invalid id" }, 400);
     const found = await deps.executions.status(id);
     if (!found) return c.json({ error: "Not found" }, 404);
+    const sourceChain = found.record?.plan?.sourceChain;
     const evidence = (found.record?.evidence ?? []).map((e) => {
-      const chain = STEP_CHAIN[e.step];
+      const chain = stepChain(e.step, sourceChain);
       return {
         ...e,
         chain: chain ?? null,

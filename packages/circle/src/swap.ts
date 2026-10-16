@@ -5,7 +5,8 @@ import { AppKit } from "@circle-fin/app-kit";
 // package must not depend on the pricing package (that would invert the
 // dependency direction), so the supported-token set is redefined here rather
 // than imported. Keep the two lists in sync if Arc adds/removes swap tokens.
-const SUPPORTED_ARC_TOKENS = new Set(["USDC", "USDT", "EURC", "WETH", "ETH", "NATIVE"]);
+// Swappable on Arc Testnet per Circle Swap Kit (USDC, EURC). cirBTC is not offered.
+const SUPPORTED_ARC_TOKENS = new Set(["USDC", "EURC"]);
 
 export type SwapOnArcParams = {
   fromAddress: string;

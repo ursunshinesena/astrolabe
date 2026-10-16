@@ -8,7 +8,7 @@ export const SwapQuoteSchema = z.object({
   amountIn: z.string(),
   amountOut: z.string(),
   gasEstimateWei: z.string(),
-  source: z.enum(["uniswap-v3", "arc-app-kit"]),
+  source: z.literal("arc-app-kit"),
   slippageBps: z.number().int().min(0).max(10000).optional(),
 });
 

@@ -5,8 +5,8 @@ import type {
   RunExecutionParams,
   RunExecutionResult,
 } from "@astrolabe/executor";
+import type { QuoteOutcome, RouteView, Wallets } from "@astrolabe/pricing";
 import type { ResultAsync } from "neverthrow";
-import type { QuoteOutcome, RouteView } from "./quotes.js";
 
 const QUOTE_TTL_MS = 2 * 60_000;
 
@@ -25,13 +25,6 @@ export type ExecutionServiceDeps = {
   saveExecution: (r: ExecutionRecord, dir?: string) => ResultAsync<ExecutionRecord, ExecutorError>;
   loadExecution: (id: string, dir?: string) => ResultAsync<ExecutionRecord, ExecutorError>;
   now?: () => number;
-};
-
-export type WalletConfig = {
-  walletId: string;
-  sourceAddress: string;
-  arcAddress: string;
-  arcWalletId?: string;
 };
 
 export type StartResult =
@@ -63,7 +56,7 @@ export class ExecutionService {
     return id;
   }
 
-  async start(quoteId: string, wallet: WalletConfig): Promise<StartResult> {
+  async start(quoteId: string, wallets: Wallets): Promise<StartResult> {
     if (this.started.has(quoteId)) {
       return { ok: false, status: 409, error: "This quote has already been executed" };
     }
@@ -75,6 +68,11 @@ export class ExecutionService {
     const route: RouteView | null = stored.outcome.winner;
     if (!route?.executable) {
       return { ok: false, status: 400, error: route?.reason ?? "No executable route" };
+    }
+    const source = wallets[route.sourceChain];
+    const arc = wallets.ARC_TESTNET;
+    if (!source || !arc) {
+      return { ok: false, status: 400, error: `No wallet configured on ${route.sourceChain}` };
     }
     // Claim the quote before any await so a concurrent duplicate is rejected.
     this.started.set(quoteId, "");
@@ -89,7 +87,17 @@ export class ExecutionService {
     };
 
     const run = this.deps
-      .runExecution({ route, ...wallet, baseDir: this.baseDir }, { saveExecution: save })
+      .runExecution(
+        {
+          route,
+          walletId: source.walletId,
+          sourceAddress: source.address,
+          arcAddress: arc.address,
+          arcWalletId: arc.walletId,
+          baseDir: this.baseDir,
+        },
+        { saveExecution: save },
+      )
       .then((outcome) => {
         if (outcome.isErr()) {
           // Remember the reason even when the executor rejected before

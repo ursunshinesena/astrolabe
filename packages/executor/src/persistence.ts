@@ -24,6 +24,7 @@ const ExecutionRecordSchema = z.object({
     .optional(),
   plan: z
     .object({
+      sourceChain: z.string().optional(),
       arcAddress: z.string(),
       arcWalletId: z.string().optional(),
       tokenIn: z.string(),

@@ -4,7 +4,7 @@ import type { ExecutorState } from "./states.js";
 
 export const TRANSITIONS: Record<ExecutorState, readonly ExecutorState[]> = {
   created: ["preflight", "failed_funds_safe"],
-  preflight: ["burning", "failed_funds_safe"],
+  preflight: ["burning", "swapping", "failed_funds_safe"],
   burning: ["awaiting_attestation", "failed_funds_safe"],
   awaiting_attestation: ["minting", "failed_funds_safe"],
   minting: ["swapping", "failed_funds_safe"],

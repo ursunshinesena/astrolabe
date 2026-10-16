@@ -7,7 +7,7 @@ import {
   getTokenBalances,
 } from "@astrolabe/circle";
 import { swapOnArc } from "@astrolabe/circle";
-import type { RouteOption } from "@astrolabe/pricing";
+import { type RouteOption, bridgeAmountFor, fundingAmountFor } from "@astrolabe/pricing";
 import { type Result, ResultAsync, err, ok } from "neverthrow";
 import { runBridge } from "./bridging.js";
 import { ExecutorError } from "./errors.js";
@@ -21,35 +21,6 @@ import { saveExecution } from "./persistence.js";
 import { runPreflight } from "./preflight.js";
 import { makeBalanceGuard } from "./swap-guard.js";
 import { runSwap } from "./swapping.js";
-
-/**
- * USDC kept back on Arc for the swap's own gas (Arc gas is paid in USDC).
- * Live runs cost well under a cent per swap; 0.05 leaves ample margin.
- */
-export const ARC_GAS_RESERVE_USDC = "0.05";
-
-function toMicro(amount: string): bigint {
-  const [whole = "0", fraction = ""] = amount.trim().split(".");
-  return BigInt(whole) * 1_000_000n + BigInt(fraction.slice(0, 6).padEnd(6, "0") || "0");
-}
-
-function fromMicro(micro: bigint): string {
-  const fraction = (micro % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
-  return fraction ? `${micro / 1_000_000n}.${fraction}` : `${micro / 1_000_000n}`;
-}
-
-/**
- * USDC to bridge so the full swap amount is spendable on Arc: the bridge
- * and forwarder fees are taken from the transferred amount, and the swap's
- * gas is paid in USDC on Arc.
- */
-export function bridgeAmountFor(route: RouteOption): string {
-  return fromMicro(
-    toMicro(route.swapQuote.amountIn) +
-      toMicro(route.bridgeFee.amount) +
-      toMicro(ARC_GAS_RESERVE_USDC),
-  );
-}
 
 /** M4 design: retry a failed swap 3 times, waiting 5s, 15s and 45s. */
 export const SWAP_RETRY_DELAYS_MS = [5_000, 15_000, 45_000] as const;
@@ -94,7 +65,8 @@ export type RunExecutionDeps = {
 
 export type RunExecutionResult = {
   record: ExecutionRecord;
-  bridgeResult: BridgeResult;
+  /** Null for a swap on Arc that needed no bridge. */
+  bridgeResult: BridgeResult | null;
   swapResult: SwapOnArcResult;
 };
 
@@ -114,13 +86,14 @@ async function executeRun(
 ): Promise<Result<RunExecutionResult, ExecutorError>> {
   const { route } = params;
 
-  if (route.strategy === "swap_only") {
-    // Deliberately not rerouted through the bridge path: a swap_only route
-    // has no bridge leg, and silently executing something the caller did not
-    // quote would violate the dry-run contract.
+  const onHub = route.strategy === "swap_only";
+  if (onHub && route.sourceChain !== "ARC_TESTNET") {
+    // A same-chain swap is only executable on Arc, the FX hub. Elsewhere it
+    // would have to be rerouted through a bridge the caller never quoted,
+    // which would violate the dry-run contract.
     return err(
       new ExecutorError(
-        "swap_only routes are not yet supported by the executor",
+        `swap_only routes are only executable on ARC_TESTNET; got ${route.sourceChain}`,
         "UNSUPPORTED_ROUTE",
       ),
     );
@@ -141,6 +114,7 @@ async function executeRun(
   const fresh: ExecutionRecord = {
     ...createExecution(),
     plan: {
+      sourceChain: route.sourceChain,
       arcAddress: params.arcAddress,
       ...(params.arcWalletId ? { arcWalletId: params.arcWalletId } : {}),
       tokenIn: route.swapQuote.tokenIn,
@@ -165,7 +139,8 @@ async function executeRun(
     sourceChain: route.sourceChain,
     destinationChain: route.destinationChain,
     walletId: params.walletId,
-    amountUsdc: bridgeAmountFor(route),
+    amount: fundingAmountFor(route),
+    token: onHub ? route.swapQuote.tokenIn : "USDC",
   });
   if (preflightOutcome.isErr()) {
     return err(preflightOutcome.error);
@@ -192,33 +167,38 @@ async function executeRun(
     return err(new ExecutorError(`Preflight failed: ${failing}`, "PREFLIGHT_FAILED"));
   }
 
-  const bridged = await deps.runBridge({
-    record,
-    fromChain: TO_APPKIT_CHAIN[route.sourceChain],
-    toChain: TO_APPKIT_CHAIN[route.destinationChain],
-    fromAddress: params.sourceAddress,
-    toAddress: params.arcAddress,
-    amount: bridgeAmountFor(route),
-    baseDir: params.baseDir,
-  });
-  if (bridged.isErr()) {
-    return err(bridged.error);
+  // Funds already on Arc swap straight from "preflight"; otherwise bridge
+  // first and record the bridge's tx hashes before the swap starts, so the
+  // evidence survives even if this process dies mid-swap.
+  let bridgeResult: BridgeResult | null = null;
+  let readyRecord = record;
+  if (!onHub) {
+    const bridged = await deps.runBridge({
+      record,
+      fromChain: TO_APPKIT_CHAIN[route.sourceChain],
+      toChain: TO_APPKIT_CHAIN[route.destinationChain],
+      fromAddress: params.sourceAddress,
+      toAddress: params.arcAddress,
+      amount: bridgeAmountFor(route),
+      baseDir: params.baseDir,
+    });
+    if (bridged.isErr()) {
+      return err(bridged.error);
+    }
+    const result = bridged.value.result;
+    bridgeResult = result;
+    const evidenced = await deps.saveExecution(
+      withEvidence(
+        bridged.value.record,
+        result.steps.map((step) => ({ step: step.name, txHash: step.txHash })),
+      ),
+      params.baseDir,
+    );
+    if (evidenced.isErr()) {
+      return err(withBridgeEvidence(evidenced.error, result));
+    }
+    readyRecord = evidenced.value;
   }
-  const { result: bridgeResult } = bridged.value;
-
-  // Write the bridge's tx hashes into the record before the swap starts, so
-  // the evidence survives even if this process dies mid-swap.
-  const evidenced = await deps.saveExecution(
-    withEvidence(
-      bridged.value.record,
-      bridgeResult.steps.map((step) => ({ step: step.name, txHash: step.txHash })),
-    ),
-    params.baseDir,
-  );
-  if (evidenced.isErr()) {
-    return err(withBridgeEvidence(evidenced.error, bridgeResult));
-  }
-  const bridgedRecord = evidenced.value;
 
   const checkUnswapped = params.arcWalletId
     ? await makeBalanceGuard({
@@ -229,8 +209,8 @@ async function executeRun(
       })
     : null;
 
-  // runBridge left the record in "minting"; runSwap drives it through
-  // minting -> swapping -> completed itself.
+  // The record is in "minting" (after a bridge) or "preflight" (on Arc);
+  // runSwap drives it through swapping -> completed itself.
   const swapDeps = {
     swapOnArc,
     saveExecution: deps.saveExecution,
@@ -239,7 +219,7 @@ async function executeRun(
   };
   const swapped = await deps.runSwap(
     {
-      record: bridgedRecord,
+      record: readyRecord,
       fromAddress: params.arcAddress,
       tokenIn: route.swapQuote.tokenIn,
       tokenOut: route.swapQuote.tokenOut,
@@ -258,7 +238,7 @@ async function executeRun(
     // The bridge already completed on-chain — its tx hashes are evidence
     // that must never be lost, so append them to whatever the swap phase
     // reported before passing the error through.
-    return err(withBridgeEvidence(swapped.error, bridgeResult));
+    return err(bridgeResult ? withBridgeEvidence(swapped.error, bridgeResult) : swapped.error);
   }
 
   return ok({

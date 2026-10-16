@@ -13,6 +13,13 @@ const USDC_BALANCE: TokenBalance = {
   tokenAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
 };
 
+const GAS_BALANCE: TokenBalance = {
+  symbol: "ETH-SEPOLIA",
+  amount: "0.049",
+  decimals: 18,
+  tokenAddress: "",
+};
+
 function makeDeps(
   result: Result<TokenBalance[], Error>,
   env: Record<string, string | undefined> = VALID_ENV,
@@ -34,7 +41,7 @@ const PARAMS = {
   sourceChain: "ETHEREUM_SEPOLIA",
   destinationChain: "BASE_SEPOLIA",
   walletId: "wallet-123",
-  amountUsdc: "50",
+  amount: "50",
 } as const;
 
 describe("runPreflight", () => {
@@ -98,12 +105,18 @@ describe("runPreflight", () => {
     expect(calls()).toBe(1);
   });
 
-  it("passes all 4 checks with sufficient balance, calling the network exactly once", async () => {
-    const { deps, calls } = makeDeps(ok([USDC_BALANCE]));
+  it("passes all 5 checks with sufficient balance and gas, calling the network exactly once", async () => {
+    const { deps, calls } = makeDeps(ok([USDC_BALANCE, GAS_BALANCE]));
     const result = await runPreflight(PARAMS, deps);
     const report = result._unsafeUnwrap();
     expect(report.passed).toBe(true);
-    expect(report.checks.map((c) => c.name)).toEqual(["config", "route", "wallet", "balance"]);
+    expect(report.checks.map((c) => c.name)).toEqual([
+      "config",
+      "route",
+      "wallet",
+      "balance",
+      "gas",
+    ]);
     expect(report.checks.every((c) => c.passed)).toBe(true);
     expect(calls()).toBe(1);
   });
@@ -132,14 +145,39 @@ describe("runPreflight", () => {
   });
 
   it("accepts fractional decimal amounts", async () => {
-    const { deps } = makeDeps(ok([{ ...USDC_BALANCE, amount: "50.5" }]));
-    const result = await runPreflight({ ...PARAMS, amountUsdc: "50.25" }, deps);
+    const { deps } = makeDeps(ok([{ ...USDC_BALANCE, amount: "50.5" }, GAS_BALANCE]));
+    const result = await runPreflight({ ...PARAMS, amount: "50.25" }, deps);
     expect(result._unsafeUnwrap().passed).toBe(true);
+  });
+
+  it("fails gas on a non-Arc source with no native token", async () => {
+    const { deps } = makeDeps(ok([USDC_BALANCE]));
+    const report = (await runPreflight(PARAMS, deps))._unsafeUnwrap();
+    expect(report.passed).toBe(false);
+    expect(report.checks.at(-1)).toMatchObject({ name: "gas", passed: false });
+  });
+
+  it("a swap on Arc: same chain allowed, EURC balance checked, no native gas needed", async () => {
+    const { deps } = makeDeps(ok([{ ...USDC_BALANCE, symbol: "EURC", amount: "3" }]));
+    const report = (
+      await runPreflight(
+        {
+          sourceChain: "ARC_TESTNET",
+          destinationChain: "ARC_TESTNET",
+          walletId: "arc",
+          amount: "2",
+          token: "EURC",
+        },
+        deps,
+      )
+    )._unsafeUnwrap();
+    expect(report.passed).toBe(true);
+    expect(report.checks.map((c) => c.name)).not.toContain("gas");
   });
 
   it("fails balance for a malformed requested amount", async () => {
     const { deps } = makeDeps(ok([USDC_BALANCE]));
-    const result = await runPreflight({ ...PARAMS, amountUsdc: "abc" }, deps);
+    const result = await runPreflight({ ...PARAMS, amount: "abc" }, deps);
     const report = result._unsafeUnwrap();
     expect(report.passed).toBe(false);
     expect(report.checks[3]?.detail).toContain("Invalid USDC amount");

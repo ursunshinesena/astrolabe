@@ -12,11 +12,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { ExecutionTracker, ProofCard } from "./execution-tracker";
 import { RouteTable } from "./route-table";
 
-const EXAMPLES = [
-  "Turn 5 USDC into euros on the best route",
-  "Best ETH position with 10 USDC",
-  "Swap some USDC",
-];
+const EXAMPLES = ["Turn 5 USDC into euros", "Convert 2 EURC back to dollars", "I want some euros"];
 
 const POLL_MS = 2_000;
 const TERMINAL = new Set(["completed", "failed_funds_safe"]);
@@ -79,13 +75,8 @@ export function Agent() {
         setPhase("idle");
         return;
       }
-      if (parsed.sourceToken !== "USDC") {
-        setIntent({ action: "error", reason: "Astrolabe spends USDC — start from USDC." });
-        setPhase("idle");
-        return;
-      }
       setPhase("quoting");
-      setQuote(await api.quote(parsed.amount, parsed.targetToken));
+      setQuote(await api.quote(parsed.amount, parsed.sourceToken, parsed.targetToken));
       setPhase("ready");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -162,30 +153,42 @@ export function Agent() {
 
       {intent?.action === "swap" && (
         <p className="text-sm text-muted">
-          Understood: spend <b className="text-ink">{intent.amount} USDC</b> for{" "}
-          <b className="text-ink">{intent.targetToken}</b>. Funds start on{" "}
-          {chainLabel("ETHEREUM_SEPOLIA")}.
+          Understood: convert{" "}
+          <b className="text-ink">
+            {intent.amount} {intent.sourceToken}
+          </b>{" "}
+          to <b className="text-ink">{intent.targetToken}</b> on Arc. Checking every chain for
+          funds…
         </p>
       )}
 
       {quote && (
         <section className="space-y-4">
-          <h2 className="font-display text-2xl">Routes compared</h2>
-          {quote.routes.length > 0 || quote.failures.length > 0 ? (
-            <RouteTable quote={quote} />
+          <h2 className="font-display text-2xl">Where to fund it from</h2>
+          {quote.error ? (
+            <Notice tone="bad">{quote.error}</Notice>
           ) : (
-            <Notice tone="warn">No chain can quote {quote.tokenOut} on testnet.</Notice>
+            <>
+              <p className="text-sm text-muted">
+                On Arc: {formatAmount(quote.amount)} {quote.tokenIn} →{" "}
+                <b className="text-ink">
+                  ~{formatAmount(quote.amountOut ?? "0", 4)} {quote.tokenOut}
+                </b>{" "}
+                (1 {quote.tokenIn} = {quote.rate} {quote.tokenOut})
+              </p>
+              <RouteTable quote={quote} />
+              <Reasoning quote={quote} />
+            </>
           )}
-          {winner && <Reasoning quote={quote} />}
 
           {winner?.executable && !executionId && (
             <div className="flex flex-col gap-3 rounded-xl border border-brass/40 bg-brass/5 p-5 sm:flex-row sm:items-center">
               <p className="flex-1 text-sm">
-                <b>Dry run.</b> Nothing has been sent. Approving bridges{" "}
-                {winner.bridgeAmount ?? quote.amount} USDC (incl. fees and Arc gas) from{" "}
-                {chainLabel(winner.sourceChain)} to {chainLabel(winner.destinationChain)} with CCTP
-                V2, then swaps to {winner.swapQuote.tokenOut} (max slippage{" "}
-                {winner.expectedSlippageBps / 100}%).
+                <b>Dry run.</b> Nothing has been sent.{" "}
+                {winner.strategy === "swap_only"
+                  ? `Approving swaps ${quote.amount} ${quote.tokenIn} to ${quote.tokenOut} directly on Arc`
+                  : `Approving bridges ${winner.bridgeAmount} USDC (incl. fees and Arc gas) from ${chainLabel(winner.sourceChain)} to Arc with CCTP V2, then swaps to ${quote.tokenOut}`}{" "}
+                (max slippage {winner.expectedSlippageBps / 100}%).
               </p>
               <button
                 type="button"
@@ -222,26 +225,28 @@ export function Agent() {
 
 function Reasoning({ quote }: { quote: QuoteResponse }) {
   const winner = quote.winner;
-  if (!winner) return null;
-  const best = quote.routes[0];
-  const out = `${formatAmount(winner.netAmountOut)} ${winner.swapQuote.tokenOut}`;
-  if (!winner.executable) {
+  if (!winner) {
     return (
       <p className="text-sm text-muted">
-        Best price: {chainLabel(winner.destinationChain)} at ~{out}. On testnet this is quote-only —{" "}
-        {winner.reason}. Try a EURC route to see a full execution on Arc.
+        No chain holds enough {quote.tokenIn} to fund this conversion. Top up a wallet or lower the
+        amount.
       </p>
     );
   }
-  const better =
-    best && best.destinationChain !== winner.destinationChain
-      ? ` ${chainLabel(best.destinationChain)} quoted more but can't be executed here.`
-      : "";
+  const where = chainLabel(winner.sourceChain);
+  if (winner.strategy === "swap_only") {
+    return (
+      <p className="text-sm text-muted">
+        Chosen: <b className="text-ink">{where}</b>. The funds are already on Arc, so there is no
+        bridge and no bridge fee; the swap pays its gas in USDC.
+      </p>
+    );
+  }
   return (
     <p className="text-sm text-muted">
-      Chosen: <b className="text-ink">{chainLabel(winner.destinationChain)}</b>, ~{out} after the{" "}
-      {winner.bridgeFee.amount} USDC bridge fee. Gas on Arc is paid in USDC, so the agent never
-      needs a separate gas token.{better}
+      Chosen: <b className="text-ink">{where}</b>, the cheapest chain that can cover it — a{" "}
+      {formatAmount(winner.costUsdc)} USDC CCTP fee (live estimate) to bring the funds to Arc, where
+      the swap pays its gas in USDC.
     </p>
   );
 }

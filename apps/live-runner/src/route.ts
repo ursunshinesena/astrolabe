@@ -1,56 +1,35 @@
-import type { SupportedChainKey } from "@astrolabe/chains";
 import type { BridgeResult, SwapOnArcResult } from "@astrolabe/circle";
-import { bridgeAmountFor } from "@astrolabe/executor";
-import {
-  type BridgeFee,
-  type RouteOption,
-  type SwapQuote,
-  buildRouteOptions,
-} from "@astrolabe/pricing";
+import type { QuoteOutcome } from "@astrolabe/pricing";
 
-/** Tokens Circle's Swap Kit can trade on Arc Testnet (USDC is also the gas token). */
-export const ARC_TESTNET_SWAP_TOKENS = ["EURC", "USDC"] as const;
+const LABELS: Record<string, string> = {
+  ARC_TESTNET: "Arc Testnet",
+  ETHEREUM_SEPOLIA: "Ethereum Sepolia",
+  BASE_SEPOLIA: "Base Sepolia",
+  ARBITRUM_SEPOLIA: "Arbitrum Sepolia",
+};
 
-/**
- * Builds the single executable route for the live runner: bridge USDC from
- * `sourceChain` to Arc Testnet, then swap there. Uses the shared routing
- * code so fees and net output are computed exactly as the API will.
- */
-export function buildArcRoute(
-  sourceChain: SupportedChainKey,
-  arcQuote: SwapQuote,
-  bridgeFee?: BridgeFee,
-): RouteOption {
-  if (sourceChain === "ARC_TESTNET") {
-    throw new Error("Source chain must differ from ARC_TESTNET for a bridge_then_swap route");
+/** Human-readable dry-run preview of the funding plan and the chosen route. */
+export function formatPlan(plan: QuoteOutcome): string {
+  if (plan.error) return `No plan: ${plan.error}`;
+  const lines = [
+    "Funding plan (dry run — nothing has been sent)",
+    `  convert:  ${plan.amount} ${plan.tokenIn} -> ~${plan.amountOut} ${plan.tokenOut} on Arc (rate ${plan.rate})`,
+    "",
+  ];
+  for (const r of plan.routes) {
+    const mark = plan.winner && r.sourceChain === plan.winner.sourceChain ? "★" : " ";
+    const how = r.strategy === "swap_only" ? "swap on Arc" : `bridge ${r.bridgeAmount} USDC`;
+    const status = r.feasible ? `fee ${r.costUsdc} USDC` : r.reason;
+    const label = (LABELS[r.sourceChain] ?? r.sourceChain).padEnd(18);
+    lines.push(`  ${mark} ${label} ${how.padEnd(22)} ${status}`);
   }
-  if (arcQuote.chainKey !== "ARC_TESTNET") {
-    throw new Error(`Expected an ARC_TESTNET quote, got ${arcQuote.chainKey}`);
-  }
-  const [route] = buildRouteOptions({
-    sourceChain,
-    quotes: { ARC_TESTNET: arcQuote },
-    ...(bridgeFee ? { bridgeFee } : {}),
-  });
-  if (!route) {
-    throw new Error("Routing produced no option for ARC_TESTNET");
-  }
-  return route;
-}
-
-/** Human-readable dry-run preview of what an execution would do. */
-export function formatPreview(route: RouteOption): string {
-  const q = route.swapQuote;
-  return [
-    "Route preview (dry run — nothing has been sent)",
-    `  strategy:        ${route.strategy}`,
-    `  bridge:          ${bridgeAmountFor(route)} USDC  ${route.sourceChain} -> ${route.destinationChain} (CCTP V2)`,
-    `  bridge fee:      ${route.bridgeFee.amount} USDC (${route.bridgeFee.source}) + Arc gas reserve`,
-    `  swap on Arc:     ${q.amountIn} ${q.tokenIn} -> ~${q.amountOut} ${q.tokenOut}`,
-    `  net out:         ~${route.netAmountOut} ${q.tokenOut}`,
-    `  max slippage:    ${route.expectedSlippageBps} bps`,
-    "  gas on Arc:      paid in USDC",
-  ].join("\n");
+  lines.push("");
+  lines.push(
+    plan.winner
+      ? `  chosen:   ${LABELS[plan.winner.sourceChain]} (${plan.winner.strategy}), gas on Arc paid in USDC`
+      : "  chosen:   none — no funding source can cover this conversion",
+  );
+  return lines.join("\n");
 }
 
 /** One line per on-chain transaction, with an explorer link where known. */

@@ -4,7 +4,7 @@ import type { Result } from "neverthrow";
 import { ResultAsync } from "neverthrow";
 import { ExecutorError } from "./errors.js";
 
-export type PreflightCheckName = "config" | "route" | "wallet" | "balance";
+export type PreflightCheckName = "config" | "route" | "wallet" | "balance" | "gas";
 
 export type PreflightCheck = {
   name: PreflightCheckName;
@@ -21,8 +21,10 @@ export type PreflightParams = {
   sourceChain: SupportedChainKey;
   destinationChain: SupportedChainKey;
   walletId: string;
-  /** Human-readable USDC decimal string (e.g. "10.5") — same convention as TokenBalance.amount. */
-  amountUsdc: string;
+  /** Human-readable decimal string (e.g. "10.5") — same convention as TokenBalance.amount. */
+  amount: string;
+  /** Token that must cover `amount` in the wallet. Default "USDC". */
+  token?: string;
 };
 
 export type PreflightDeps = {
@@ -83,14 +85,14 @@ async function executeChecks(
     detail: "CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET are set",
   });
 
-  // b. route — both chains supported and distinct
+  // b. route — both chains supported; the same chain only for a swap on Arc
   const unsupported = [params.sourceChain, params.destinationChain].filter(
     (c) => !(c in SUPPORTED_CHAINS),
   );
   if (unsupported.length > 0) {
     return fail("route", `Unsupported chain(s): ${unsupported.join(", ")}`);
   }
-  if (params.sourceChain === params.destinationChain) {
+  if (params.sourceChain === params.destinationChain && params.sourceChain !== "ARC_TESTNET") {
     return fail("route", `Source and destination chain are the same: ${params.sourceChain}`);
   }
   checks.push({
@@ -112,23 +114,34 @@ async function executeChecks(
   });
 
   // d. balance — reuse the same response; do not call the network twice
-  const requested = toMicroUsdc(params.amountUsdc);
+  const token = params.token ?? "USDC";
+  const requested = toMicroUsdc(params.amount);
   if (requested === null) {
-    return fail("balance", `Invalid USDC amount: "${params.amountUsdc}"`);
+    return fail("balance", `Invalid ${token} amount: "${params.amount}"`);
   }
-  const usdcAmount = balances.find((b) => b.symbol === "USDC")?.amount ?? "0";
-  const available = toMicroUsdc(usdcAmount);
+  const held = balances.find((b) => b.symbol === token)?.amount ?? "0";
+  const available = toMicroUsdc(held);
   if (available === null) {
-    return fail("balance", `Unparseable USDC balance from wallet: "${usdcAmount}"`);
+    return fail("balance", `Unparseable ${token} balance from wallet: "${held}"`);
   }
   if (available < requested) {
-    return fail("balance", `Insufficient USDC: have ${usdcAmount}, need ${params.amountUsdc}`);
+    return fail("balance", `Insufficient ${token}: have ${held}, need ${params.amount}`);
   }
   checks.push({
     name: "balance",
     passed: true,
-    detail: `USDC balance ${usdcAmount} >= ${params.amountUsdc}`,
+    detail: `${token} balance ${held} >= ${params.amount}`,
   });
+
+  // e. gas — approve and burn on a non-Arc source chain cost its native token;
+  // on Arc gas is USDC and is covered by the reserve in the amount above.
+  if (params.sourceChain !== "ARC_TESTNET") {
+    const native = balances.find((b) => b.tokenAddress === "" && Number(b.amount) > 0);
+    if (!native) {
+      return fail("gas", `No native gas token on ${params.sourceChain} for approve and burn`);
+    }
+    checks.push({ name: "gas", passed: true, detail: `${native.amount} ${native.symbol} for gas` });
+  }
 
   return { passed: true, checks };
 }

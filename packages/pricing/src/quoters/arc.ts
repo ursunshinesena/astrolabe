@@ -2,8 +2,8 @@ import { createCircleWalletsAdapter } from "@circle-fin/adapter-circle-wallets";
 import { AppKit } from "@circle-fin/app-kit";
 import { QuoteError, type SwapQuote } from "../types.js";
 
-// Arc App Kit supported swap tokens (subset relevant to our use case)
-const SUPPORTED_ARC_TOKENS = new Set(["USDC", "USDT", "EURC", "WETH", "ETH", "NATIVE"]);
+// Swappable on Arc Testnet per Circle Swap Kit (USDC, EURC). cirBTC is not offered.
+const SUPPORTED_ARC_TOKENS = new Set(["USDC", "EURC"]);
 
 export type ArcQuoteParams = {
   fromAddress: string;

@@ -6,6 +6,7 @@ const LEGAL: ReadonlyArray<[ExecutorState, ExecutorState]> = [
   ["created", "preflight"],
   ["created", "failed_funds_safe"],
   ["preflight", "burning"],
+  ["preflight", "swapping"],
   ["preflight", "failed_funds_safe"],
   ["burning", "awaiting_attestation"],
   ["burning", "failed_funds_safe"],

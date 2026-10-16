@@ -71,11 +71,12 @@ describe("runSwap", () => {
     ]);
   });
 
-  it("record not in minting (today's swap_only route): INVALID_TRANSITION, swap never called", async () => {
+  it("record mid-bridge (burning): INVALID_TRANSITION, swap never called", async () => {
     const swapSpy = makeSwapOnArc(SUCCESS_RESULT);
     const saveSpy = vi.fn((record: ExecutionRecord, dir?: string) => saveExecution(record, dir));
     const deps: RunSwapDeps = { swapOnArc: swapSpy, saveExecution: saveSpy };
-    const record = applyTransition(createExecution(), "preflight")._unsafeUnwrap();
+    let record = applyTransition(createExecution(), "preflight")._unsafeUnwrap();
+    record = applyTransition(record, "burning")._unsafeUnwrap();
 
     const outcome = await runSwap({ record, baseDir, ...SWAP_PARAMS }, deps);
 

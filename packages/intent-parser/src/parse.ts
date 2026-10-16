@@ -18,6 +18,9 @@ export async function parseIntent(
 
   const parsed = IntentResultSchema.safeParse(raw);
   if (parsed.success) {
+    if (parsed.data.action === "swap" && parsed.data.sourceToken === parsed.data.targetToken) {
+      return { action: "error", reason: "Source and target currency must differ." };
+    }
     return parsed.data;
   }
   return { action: "error", reason: `Schema validation failed: ${parsed.error.message}` };

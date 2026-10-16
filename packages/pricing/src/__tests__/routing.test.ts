@@ -1,122 +1,110 @@
 import { describe, expect, it } from "vitest";
-import { BRIDGE_FEE_FIXED, buildRouteOptions, compareRoutes } from "../routing.js";
+import { type FundingSource, bridgeAmountFor, planFundingRoutes } from "../routing.js";
 import type { SwapQuote } from "../types.js";
 
-function makeQuote(
-  chainKey: SwapQuote["chainKey"],
-  amountOut: string,
-  amountIn = "100",
-): SwapQuote {
+const FX: SwapQuote = {
+  chainKey: "ARC_TESTNET",
+  tokenIn: "USDC",
+  tokenOut: "EURC",
+  amountIn: "5",
+  amountOut: "6.38",
+  gasEstimateWei: "0",
+  source: "arc-app-kit",
+};
+
+function source(chain: FundingSource["chain"], over: Partial<FundingSource> = {}): FundingSource {
   return {
-    chainKey,
-    tokenIn: "USDC",
-    tokenOut: "WETH",
-    amountIn,
-    amountOut,
-    gasEstimateWei: "120000",
-    source: "uniswap-v3",
+    chain,
+    walletConfigured: true,
+    balance: "100",
+    hasNativeGas: true,
+    bridgeFee: { amount: "0.02", source: "estimate" },
+    ...over,
   };
 }
 
-const QUOTES = {
-  ETHEREUM_SEPOLIA: makeQuote("ETHEREUM_SEPOLIA", "0.04900"),
-  BASE_SEPOLIA: makeQuote("BASE_SEPOLIA", "0.04950"), // best swap rate
-  ARC_TESTNET: makeQuote("ARC_TESTNET", "0.04800"),
-};
-
-describe("buildRouteOptions", () => {
-  it("produces 1 swap_only + 2 bridge_then_swap from 3 quotes", () => {
-    const options = buildRouteOptions({
-      sourceChain: "ETHEREUM_SEPOLIA",
-      quotes: QUOTES,
+describe("planFundingRoutes", () => {
+  it("prefers funds already on Arc: no bridge, no fee", () => {
+    const plan = planFundingRoutes({
+      fxQuote: FX,
+      sources: [source("ETHEREUM_SEPOLIA"), source("ARC_TESTNET")],
     });
-
-    expect(options).toHaveLength(3);
-    expect(options.filter((o) => o.strategy === "swap_only")).toHaveLength(1);
-    expect(options.filter((o) => o.strategy === "bridge_then_swap")).toHaveLength(2);
-  });
-
-  it("swap_only has bridgeFee amount of 0 and netAmountOut == amountOut", () => {
-    const options = buildRouteOptions({ sourceChain: "ETHEREUM_SEPOLIA", quotes: QUOTES });
-    const swapOnly = options.find((o) => o.strategy === "swap_only");
-
-    expect(swapOnly).toBeDefined();
-    expect(swapOnly?.bridgeFee.amount).toBe("0");
-    expect(swapOnly?.netAmountOut).toBe(QUOTES.ETHEREUM_SEPOLIA.amountOut);
-  });
-
-  it("bridge_then_swap netAmountOut is less than raw amountOut (fee deducted)", () => {
-    const options = buildRouteOptions({ sourceChain: "ETHEREUM_SEPOLIA", quotes: QUOTES });
-    const bridgeOptions = options.filter((o) => o.strategy === "bridge_then_swap");
-
-    for (const opt of bridgeOptions) {
-      expect(Number(opt.netAmountOut)).toBeLessThan(Number(opt.swapQuote.amountOut));
-    }
-  });
-
-  it("uses BRIDGE_FEE_FIXED when no bridgeFee is provided", () => {
-    const options = buildRouteOptions({ sourceChain: "ETHEREUM_SEPOLIA", quotes: QUOTES });
-    const bridgeOpt = options.find((o) => o.strategy === "bridge_then_swap");
-
-    expect(bridgeOpt?.bridgeFee).toEqual(BRIDGE_FEE_FIXED);
-  });
-
-  it("falls back to slippageBps param when swapQuote.slippageBps is absent", () => {
-    const options = buildRouteOptions({
-      sourceChain: "ETHEREUM_SEPOLIA",
-      quotes: QUOTES,
-      slippageBps: 500,
+    expect(plan.winner).toMatchObject({
+      strategy: "swap_only",
+      sourceChain: "ARC_TESTNET",
+      costUsdc: "0",
+      requiredAmount: "5.05",
     });
+  });
 
-    for (const opt of options) {
-      expect(opt.expectedSlippageBps).toBe(500);
-    }
+  it("picks the cheapest bridge when Arc lacks the funds", () => {
+    const plan = planFundingRoutes({
+      fxQuote: FX,
+      sources: [
+        source("ARC_TESTNET", { balance: "1" }),
+        source("BASE_SEPOLIA", { bridgeFee: { amount: "0.055", source: "estimate" } }),
+        source("ETHEREUM_SEPOLIA", { bridgeFee: { amount: "0.0195", source: "estimate" } }),
+      ],
+    });
+    expect(plan.winner).toMatchObject({
+      strategy: "bridge_then_swap",
+      sourceChain: "ETHEREUM_SEPOLIA",
+      requiredAmount: "5.0695",
+    });
+    expect(plan.routes.map((r) => r.sourceChain)).toEqual([
+      "ETHEREUM_SEPOLIA",
+      "BASE_SEPOLIA",
+      "ARC_TESTNET",
+    ]);
+    expect(plan.routes.at(-1)?.reason).toBe("Needs 5.05 USDC, has 1");
+  });
+
+  it("explains every infeasible source and has no winner when none can run", () => {
+    const plan = planFundingRoutes({
+      fxQuote: FX,
+      sources: [
+        source("ARBITRUM_SEPOLIA", { walletConfigured: false }),
+        source("BASE_SEPOLIA", { hasNativeGas: false }),
+        source("ETHEREUM_SEPOLIA", { balance: null, error: "rpc down" }),
+      ],
+    });
+    expect(plan.winner).toBeNull();
+    expect(plan.routes.map((r) => r.reason)).toEqual([
+      "No wallet on this chain",
+      "No native gas for approve and burn",
+      "rpc down",
+    ]);
+  });
+
+  it("only routes EURC from Arc, and needs no USDC gas reserve on top of it", () => {
+    const eurc = { ...FX, tokenIn: "EURC", tokenOut: "USDC", amountIn: "2", amountOut: "1.57" };
+    const plan = planFundingRoutes({
+      fxQuote: eurc,
+      sources: [source("ETHEREUM_SEPOLIA"), source("ARC_TESTNET", { balance: "2" })],
+    });
+    expect(plan.winner).toMatchObject({ sourceChain: "ARC_TESTNET", requiredAmount: "2" });
+    expect(plan.routes.find((r) => r.sourceChain === "ETHEREUM_SEPOLIA")?.reason).toContain(
+      "Only USDC is bridged",
+    );
+  });
+
+  it("falls back to the fixed fee when the live estimate is missing", () => {
+    const plan = planFundingRoutes({
+      fxQuote: FX,
+      sources: [source("ETHEREUM_SEPOLIA", { bridgeFee: null })],
+    });
+    expect(plan.winner?.bridgeFee).toEqual({ amount: "0.05", source: "fixed" });
   });
 });
 
-describe("compareRoutes", () => {
-  it("SCENARIO A — swap_only wins when source chain has the best rate", () => {
-    // Ethereum Sepolia has a better rate than bridge + fee deduction
-    const options = buildRouteOptions({
-      sourceChain: "ETHEREUM_SEPOLIA",
-      quotes: {
-        ETHEREUM_SEPOLIA: makeQuote("ETHEREUM_SEPOLIA", "0.05000"), // best
-        BASE_SEPOLIA: makeQuote("BASE_SEPOLIA", "0.04900"),
-      },
-    });
-
-    const { winner } = compareRoutes(options);
-    expect(winner.strategy).toBe("swap_only");
-    expect(winner.destinationChain).toBe("ETHEREUM_SEPOLIA");
-  });
-
-  it("SCENARIO B — bridge_then_swap wins when destination chain has a significantly better rate", () => {
-    // Base Sepolia rate is so much better that even after bridge fee it wins
-    const options = buildRouteOptions({
-      sourceChain: "ETHEREUM_SEPOLIA",
-      quotes: {
-        ETHEREUM_SEPOLIA: makeQuote("ETHEREUM_SEPOLIA", "0.04000"),
-        BASE_SEPOLIA: makeQuote("BASE_SEPOLIA", "0.05500"), // clearly better
-      },
-    });
-
-    const { winner } = compareRoutes(options);
-    expect(winner.strategy).toBe("bridge_then_swap");
-    expect(winner.destinationChain).toBe("BASE_SEPOLIA");
-  });
-
-  it("allOptions is sorted best → worst by netAmountOut", () => {
-    const options = buildRouteOptions({ sourceChain: "ETHEREUM_SEPOLIA", quotes: QUOTES });
-    const { allOptions } = compareRoutes(options);
-
-    for (let i = 0; i < allOptions.length - 1; i++) {
-      expect(Number(allOptions[i]?.netAmountOut)).toBeGreaterThanOrEqual(
-        Number(allOptions[i + 1]?.netAmountOut),
-      );
-    }
-  });
-
-  it("throws when given an empty options array", () => {
-    expect(() => compareRoutes([])).toThrow();
+describe("bridgeAmountFor", () => {
+  it("adds the bridge fee and Arc gas reserve exactly", () => {
+    const [route] = planFundingRoutes({
+      fxQuote: { ...FX, amountIn: "2.123456" },
+      sources: [
+        source("ETHEREUM_SEPOLIA", { bridgeFee: { amount: "0.021564", source: "estimate" } }),
+      ],
+    }).routes;
+    expect(route && bridgeAmountFor(route)).toBe("2.19502");
   });
 });

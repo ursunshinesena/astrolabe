@@ -22,6 +22,8 @@ export type EvidenceRecord = {
  * resumed execution can finish the swap without the original caller.
  */
 export type SwapPlan = {
+  /** Chain the funds came from (ARC_TESTNET when no bridge was needed). */
+  sourceChain?: string;
   arcAddress: string;
   arcWalletId?: string;
   tokenIn: string;

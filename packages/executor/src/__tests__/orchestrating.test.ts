@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunBridgeParams } from "../bridging.js";
 import { ExecutorError } from "../errors.js";
 import { type ExecutionRecord, applyTransition } from "../execution.js";
-import { type RunExecutionDeps, bridgeAmountFor, runExecution } from "../orchestrating.js";
+import { type RunExecutionDeps, runExecution } from "../orchestrating.js";
 import type { PreflightReport } from "../preflight.js";
 import type { RunSwapParams, RunSwapResult } from "../swapping.js";
 
@@ -135,7 +135,8 @@ describe("runExecution", () => {
       destinationChain: "ARC_TESTNET",
       walletId: "wallet-1",
       // swap amount + 0.05 bridge fee + 0.05 Arc gas reserve
-      amountUsdc: "100.1",
+      amount: "100.1",
+      token: "USDC",
     });
     // Chain keys must be mapped to App Kit names, not passed through.
     expect(bridgeSpy.mock.calls[0]?.[0]).toMatchObject({
@@ -197,17 +198,6 @@ describe("runExecution", () => {
     expect(swapDeps.checkUnswapped).toBeUndefined();
   });
 
-  it("bridgeAmountFor adds the bridge fee and Arc gas reserve exactly", () => {
-    expect(bridgeAmountFor(ROUTE)).toBe("100.1");
-    expect(
-      bridgeAmountFor({
-        ...ROUTE,
-        swapQuote: { ...ROUTE.swapQuote, amountIn: "2.123456" },
-        bridgeFee: { amount: "0.021564", source: "estimate" },
-      }),
-    ).toBe("2.19502");
-  });
-
   it("swap_only route: UNSUPPORTED_ROUTE, no dep is ever called", async () => {
     const deps = makeDeps();
 
@@ -216,11 +206,41 @@ describe("runExecution", () => {
     expect(outcome.isErr()).toBe(true);
     const error = outcome._unsafeUnwrapErr();
     expect(error.code).toBe("UNSUPPORTED_ROUTE");
-    expect(error.message).toBe("swap_only routes are not yet supported by the executor");
+    expect(error.message).toContain("only executable on ARC_TESTNET");
     expect(deps.saveExecution).not.toHaveBeenCalled();
     expect(deps.runPreflight).not.toHaveBeenCalled();
     expect(deps.runBridge).not.toHaveBeenCalled();
     expect(deps.runSwap).not.toHaveBeenCalled();
+  });
+
+  it("swap on Arc: preflight on the Arc wallet, no bridge, swap from preflight", async () => {
+    const deps = makeDeps({
+      runSwap: vi.fn((params: RunSwapParams) => {
+        let record = params.record;
+        for (const state of ["swapping", "completed"] as const) {
+          record = applyTransition(record, state)._unsafeUnwrap();
+        }
+        return okAsync({ record, result: SWAP_RESULT });
+      }),
+    });
+    const arcRoute: RouteOption = {
+      ...ROUTE,
+      strategy: "swap_only",
+      sourceChain: "ARC_TESTNET",
+      bridgeFee: { amount: "0", source: "fixed" },
+    };
+
+    const outcome = await runExecution({ ...PARAMS, route: arcRoute, baseDir }, deps);
+
+    const { record, bridgeResult } = outcome._unsafeUnwrap();
+    expect(record.state).toBe("completed");
+    expect(bridgeResult).toBeNull();
+    expect(deps.runBridge).not.toHaveBeenCalled();
+    expect(deps.runPreflight).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceChain: "ARC_TESTNET", amount: "100.05", token: "USDC" }),
+    );
+    const swapRecord = (deps.runSwap as ReturnType<typeof vi.fn>).mock.calls[0]?.[0].record;
+    expect(swapRecord.state).toBe("preflight");
   });
 
   it("non-Arc destination: UNSUPPORTED_ROUTE before any funds move", async () => {

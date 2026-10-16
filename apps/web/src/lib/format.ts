@@ -24,39 +24,65 @@ export function formatAmount(value: string, digits = 6): string {
 
 export type StepKey = "preflight" | "burn" | "attestation" | "mint" | "swap";
 export type StepStatus = "waiting" | "active" | "done" | "failed";
+export type Step = { key: StepKey; title: string; where: string };
 
-export const STEPS: Array<{ key: StepKey; title: string; where: string }> = [
-  { key: "preflight", title: "Pre-flight checks", where: "Config, route, wallet, balance" },
-  { key: "burn", title: "Burn USDC", where: "Ethereum Sepolia · CCTP V2" },
-  { key: "attestation", title: "Attestation", where: "Circle attestation service" },
-  { key: "mint", title: "Mint USDC", where: "Arc Testnet" },
-  { key: "swap", title: "Swap", where: "Arc Testnet · gas paid in USDC" },
-];
+/**
+ * The steps a run goes through: funds already on Arc swap right after the
+ * checks; funds from another chain are bridged in with CCTP V2 first.
+ */
+export function stepsFor(sourceChain: string | undefined): Step[] {
+  const checks: Step = {
+    key: "preflight",
+    title: "Pre-flight checks",
+    where: "Config, route, wallet, balance, gas",
+  };
+  const swap: Step = { key: "swap", title: "Swap on Arc", where: "Arc Testnet · gas paid in USDC" };
+  if (sourceChain === "ARC_TESTNET") return [checks, swap];
+  const from = chainLabel(sourceChain ?? "ETHEREUM_SEPOLIA");
+  return [
+    checks,
+    { key: "burn", title: "Burn USDC", where: `${from} · CCTP V2` },
+    { key: "attestation", title: "Attestation", where: "Circle attestation service" },
+    { key: "mint", title: "Mint USDC", where: "Arc Testnet" },
+    swap,
+  ];
+}
 
 /** The step each executor state is working on. */
-const ACTIVE_STEP: Record<ExecutorState, number> = {
-  created: 0,
-  preflight: 0,
-  burning: 1,
-  awaiting_attestation: 2,
-  minting: 3,
-  swapping: 4,
-  completed: 5,
-  failed_funds_safe: -1,
+const STATE_STEP: Record<ExecutorState, StepKey | "done"> = {
+  created: "preflight",
+  preflight: "preflight",
+  burning: "burn",
+  awaiting_attestation: "attestation",
+  minting: "mint",
+  swapping: "swap",
+  completed: "done",
+  failed_funds_safe: "preflight",
 };
 
 /**
  * Maps an execution's persisted state to per-step statuses. For a failed
  * execution the failing step is the state it left for failed_funds_safe.
  */
-export function stepStatuses(status: Pick<ExecutionStatus, "state" | "history">): StepStatus[] {
+export function stepStatuses(
+  status: Pick<ExecutionStatus, "state" | "history">,
+  steps: Step[],
+): StepStatus[] {
+  const indexOf = (state: ExecutorState) => {
+    const key = STATE_STEP[state];
+    return key === "done"
+      ? steps.length
+      : Math.max(
+          0,
+          steps.findIndex((s) => s.key === key),
+        );
+  };
   if (status.state === "failed_funds_safe") {
-    const lastFrom = status.history.at(-1)?.from ?? "preflight";
-    const failedAt = ACTIVE_STEP[lastFrom];
-    return STEPS.map((_, i) => (i < failedAt ? "done" : i === failedAt ? "failed" : "waiting"));
+    const failedAt = indexOf(status.history.at(-1)?.from ?? "preflight");
+    return steps.map((_, i) => (i < failedAt ? "done" : i === failedAt ? "failed" : "waiting"));
   }
-  const active = ACTIVE_STEP[status.state];
-  return STEPS.map((_, i) => (i < active ? "done" : i === active ? "active" : "waiting"));
+  const active = indexOf(status.state);
+  return steps.map((_, i) => (i < active ? "done" : i === active ? "active" : "waiting"));
 }
 
 /** Evidence step names recorded by the executor, mapped to UI steps. */

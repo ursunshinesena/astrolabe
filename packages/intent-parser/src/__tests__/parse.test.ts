@@ -26,6 +26,23 @@ describe("parseIntent", () => {
     expect(result.action).toBe("needs_clarification");
   });
 
+  it("rejects ETH and same-token conversions even if the model returns them", async () => {
+    const eth = await parseIntent("x", async () => ({
+      action: "swap",
+      sourceToken: "USDC",
+      targetToken: "ETH",
+      amount: "1",
+    }));
+    expect(eth.action).toBe("error");
+    const same = await parseIntent("x", async () => ({
+      action: "swap",
+      sourceToken: "USDC",
+      targetToken: "USDC",
+      amount: "1",
+    }));
+    expect(same.action).toBe("error");
+  });
+
   it("turns schema violations and call failures into error results", async () => {
     const bad = await parseIntent("x", async () => ({ action: "swap", sourceToken: "PEPE" }));
     expect(bad.action).toBe("error");

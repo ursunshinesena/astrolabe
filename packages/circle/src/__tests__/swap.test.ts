@@ -15,10 +15,10 @@ vi.mock("@circle-fin/adapter-circle-wallets", () => ({
 
 const FULL_RESULT = {
   tokenIn: "USDC",
-  tokenOut: "WETH",
+  tokenOut: "EURC",
   chain: "Arc_Testnet",
   amountIn: "100",
-  amountOut: "0.049",
+  amountOut: "8.6",
   fromAddress: "0xTestAddress",
   toAddress: "0xTestAddress",
   txHash: "0xabc123",
@@ -34,7 +34,7 @@ describe("swapOnArc", () => {
   const BASE_PARAMS = {
     fromAddress: "0xTestAddress",
     tokenIn: "USDC",
-    tokenOut: "WETH",
+    tokenOut: "EURC",
     amountIn: "100",
     apiKey: "test-api-key",
     entitySecret: "test-entity-secret",
@@ -46,7 +46,7 @@ describe("swapOnArc", () => {
     expect(result).toEqual({
       txHash: "0xabc123",
       amountIn: "100",
-      amountOut: "0.049",
+      amountOut: "8.6",
       explorerUrl: "https://testnet.arcscan.app/tx/0xabc123",
     });
   });
@@ -62,7 +62,7 @@ describe("swapOnArc", () => {
     expect(MOCK_SWAP).toHaveBeenCalledWith(
       expect.objectContaining({
         tokenIn: "USDC",
-        tokenOut: "WETH",
+        tokenOut: "EURC",
         amountIn: "100",
         config: { slippageBps: 300, apiKey: "test-api-key" },
       }),
@@ -70,10 +70,10 @@ describe("swapOnArc", () => {
   });
 
   it("uppercases token symbols before validating and swapping", async () => {
-    await swapOnArc({ ...BASE_PARAMS, tokenIn: "usdc", tokenOut: "weth" });
+    await swapOnArc({ ...BASE_PARAMS, tokenIn: "usdc", tokenOut: "eurc" });
 
     expect(MOCK_SWAP).toHaveBeenCalledWith(
-      expect.objectContaining({ tokenIn: "USDC", tokenOut: "WETH" }),
+      expect.objectContaining({ tokenIn: "USDC", tokenOut: "EURC" }),
     );
   });
 
@@ -110,7 +110,7 @@ describe("swapOnArc", () => {
   it("leaves optional fields undefined when absent from the SDK result", async () => {
     MOCK_SWAP.mockResolvedValue({
       tokenIn: "USDC",
-      tokenOut: "WETH",
+      tokenOut: "EURC",
       chain: "Arc_Testnet",
       amountIn: "100",
       fromAddress: "0xTestAddress",

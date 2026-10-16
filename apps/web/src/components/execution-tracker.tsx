@@ -1,11 +1,12 @@
 import type { ExecutionStatus } from "@/lib/api";
 import {
-  STEPS,
   type StepStatus,
+  chainLabel,
   evidenceStep,
   formatAmount,
   shortHash,
   stepStatuses,
+  stepsFor,
 } from "@/lib/format";
 
 const DOT: Record<StepStatus, string> = {
@@ -17,10 +18,11 @@ const DOT: Record<StepStatus, string> = {
 
 /** Live view of the guarded state machine, one row per execution step. */
 export function ExecutionTracker({ status }: { status: ExecutionStatus }) {
-  const statuses = stepStatuses(status);
+  const steps = stepsFor(status.plan?.sourceChain);
+  const statuses = stepStatuses(status, steps);
   return (
     <ol className="space-y-1">
-      {STEPS.map((step, i) => {
+      {steps.map((step, i) => {
         const s = statuses[i] ?? "waiting";
         const txs = status.evidence.filter((e) => evidenceStep(e.step) === step.key);
         return (
@@ -69,6 +71,12 @@ export function ProofCard({ status }: { status: ExecutionStatus }) {
           ? `${formatAmount(plan.amountIn)} ${plan.tokenIn} → ${plan.tokenOut} on Arc`
           : "No further transactions were sent"}
       </h3>
+      {ok && plan?.sourceChain && (
+        <p className="mt-1 text-sm text-muted">
+          Funded from {chainLabel(plan.sourceChain)}
+          {plan.sourceChain === "ARC_TESTNET" ? " — no bridge needed" : " via CCTP V2"}
+        </p>
+      )}
       {status.error && <p className="mt-2 text-sm text-muted">{status.error}</p>}
       {status.evidence.length > 0 && (
         <ul className="mt-4 space-y-1 font-mono text-xs">

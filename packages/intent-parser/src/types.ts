@@ -1,16 +1,15 @@
 import { z } from "zod";
 
 /**
- * Token allowlist. USDC/WETH/ETH are quoted on the Uniswap chains; EURC is
- * swappable on Arc Testnet (the executable route). Off-allowlist tokens
- * (e.g. USDT) are rejected during parsing.
+ * Token allowlist: Circle's dollar and euro stablecoins, the pair Astrolabe
+ * converts on Arc. Anything else is rejected during parsing.
  */
-export const TokenSchema = z.enum(["USDC", "WETH", "ETH", "EURC"]);
+export const TokenSchema = z.enum(["USDC", "EURC"]);
 export type Token = z.infer<typeof TokenSchema>;
 
 /**
  * Amount — positive decimal string, human-readable unit.
- * Examples: "500" = 500 USDC, "0.5" = 0.5 WETH.
+ * Examples: "500" = 500 USDC, "0.5" = 0.5 EURC.
  * Not raw on-chain units (e.g. "500000000") — that conversion lives in M2/execution.
  * Stored as string (not number) to avoid floating-point errors.
  */

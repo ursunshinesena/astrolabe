@@ -11,16 +11,13 @@ export type RouteView = {
   strategy: "swap_only" | "bridge_then_swap";
   sourceChain: string;
   destinationChain: string;
-  swapQuote: {
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    amountOut: string;
-    source: string;
-  };
+  swapQuote: { tokenIn: string; tokenOut: string; amountIn: string; amountOut: string };
   bridgeFee: { amount: string; source: string };
   netAmountOut: string;
   expectedSlippageBps: number;
+  requiredAmount: string;
+  balance: string | null;
+  costUsdc: string;
   executable: boolean;
   reason?: string;
   bridgeAmount?: string;
@@ -29,10 +26,13 @@ export type RouteView = {
 export type QuoteResponse = {
   quoteId: string;
   amount: string;
+  tokenIn: string;
   tokenOut: string;
+  rate: string | null;
+  amountOut: string | null;
   routes: RouteView[];
-  failures: Array<{ chain: string; error: string }>;
   winner: RouteView | null;
+  error?: string;
 };
 
 export type ExecutorState =
@@ -49,7 +49,13 @@ export type ExecutionStatus = {
   id: string;
   state: ExecutorState;
   history: Array<{ from: ExecutorState; to: ExecutorState; at: string }>;
-  plan: { tokenIn: string; tokenOut: string; amountIn: string; arcAddress: string } | null;
+  plan: {
+    sourceChain?: string;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: string;
+    arcAddress: string;
+  } | null;
   evidence: Array<{ step: string; txHash: string; chain: string | null; explorerUrl?: string }>;
   error: string | null;
   updatedAt: string | null;
@@ -57,10 +63,9 @@ export type ExecutionStatus = {
 
 export type ApiConfig = {
   network: string;
-  sourceChain: string;
+  fxHub: string;
   executionEnabled: boolean;
-  sourceAddress: string | null;
-  arcAddress: string | null;
+  wallets: Record<string, string | null>;
 };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -77,10 +82,10 @@ export const api = {
   config: () => call<ApiConfig>("/api/config"),
   parse: (text: string) =>
     call<IntentResult>("/api/intents", { method: "POST", body: JSON.stringify({ text }) }),
-  quote: (amount: string, tokenOut: string) =>
+  quote: (amount: string, tokenIn: string, tokenOut: string) =>
     call<QuoteResponse>("/api/quotes", {
       method: "POST",
-      body: JSON.stringify({ amount, tokenOut }),
+      body: JSON.stringify({ amount, tokenIn, tokenOut }),
     }),
   execute: (quoteId: string) =>
     call<{ executionId: string }>("/api/executions", {

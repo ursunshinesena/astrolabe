@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Astrolabe",
-  description: "Cross-market execution agent — one intent, four chains, guarded execution.",
+  description:
+    "Stablecoin FX agent: USDC ↔ EURC from any chain, settled on Arc with guarded execution.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

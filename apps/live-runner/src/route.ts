@@ -18,7 +18,12 @@ export function formatPlan(plan: QuoteOutcome): string {
   ];
   for (const r of plan.routes) {
     const mark = plan.winner && r.sourceChain === plan.winner.sourceChain ? "★" : " ";
-    const how = r.strategy === "swap_only" ? "swap on Arc" : `bridge ${r.bridgeAmount} USDC`;
+    const how =
+      r.strategy === "swap_only"
+        ? "swap on Arc"
+        : r.feasible || r.swapQuote.tokenIn === "USDC"
+          ? `bridge ${r.bridgeAmount} USDC`
+          : "—";
     const status = r.feasible ? `fee ${r.costUsdc} USDC` : r.reason;
     const label = (LABELS[r.sourceChain] ?? r.sourceChain).padEnd(18);
     lines.push(`  ${mark} ${label} ${how.padEnd(22)} ${status}`);

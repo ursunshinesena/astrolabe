@@ -33,22 +33,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-  contracts:
-    name: Forge build + test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Build contracts
-        run: forge build
-        working-directory: packages/contracts
-
-      - name: Test contracts
-        run: forge test -vvv
-        working-directory: packages/contracts

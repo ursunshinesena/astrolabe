@@ -16,16 +16,6 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      ".next",
-      "dist",
-      "out",
-      "coverage",
-      ".turbo",
-      "packages/contracts/out",
-      "packages/contracts/cache",
-      "**/scripts"
-    ]
+    "ignore": ["node_modules", ".next", "dist", "out", "coverage", ".turbo", "**/scripts"]
   }
 }

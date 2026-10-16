@@ -1,6 +1,6 @@
 # ADR 0001 — Execute the swap leg on Arc; EURC is the testnet target
 
-Date: 2026-10-16 · Status: Accepted
+Date: 2026-10-16 · Status: Accepted; routing superseded by ADR 0002
 
 ## Context
 

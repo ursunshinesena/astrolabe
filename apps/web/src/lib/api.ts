@@ -65,6 +65,7 @@ export type ApiConfig = {
   network: string;
   fxHub: string;
   executionEnabled: boolean;
+  agentId: string | null;
   wallets: Record<string, string | null>;
 };
 

@@ -249,3 +249,30 @@ describe("RateLimiter", () => {
     expect(limiter.allow("a")).toBe(true);
   });
 });
+
+describe("agent identity", () => {
+  it("exposes the ERC-8004 agent id and runs onCompleted after a successful execution", async () => {
+    const onCompleted = vi.fn(async () => {});
+    const executions = new ExecutionService(
+      {
+        runExecution: (_p, d) => {
+          d.saveExecution(record("preflight"));
+          return okAsync({ record: record("completed") } as never);
+        },
+        saveExecution: (r) => okAsync(r),
+        loadExecution: () => okAsync(record("completed")),
+        onCompleted,
+      },
+      "/tmp",
+    );
+    const { app } = makeApp({ executions, agentId: "42" });
+    expect((await (await app.request("/api/config")).json()).agentId).toBe("42");
+
+    const { quoteId } = await (
+      await app.request(post("/api/quotes", { amount: "5", tokenOut: "EURC" }))
+    ).json();
+    await app.request(post("/api/executions", { quoteId, approved: true }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(onCompleted).toHaveBeenCalledWith(expect.objectContaining({ state: "completed" }));
+  });
+});

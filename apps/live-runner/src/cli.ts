@@ -7,6 +7,7 @@
  *   pnpm --filter @astrolabe/live-runner live run --amount 5 [--from USDC --to EURC] [--execute]
  *   pnpm --filter @astrolabe/live-runner live status <executionId>
  *   pnpm --filter @astrolabe/live-runner live resume <executionId>
+ *   pnpm --filter @astrolabe/live-runner live register-agent [--write]
  *
  * `run` plans where to take the funds from (Arc, or a chain bridged in with
  * CCTP V2) and is a dry run unless --execute is passed (CLAUDE.md §6.6).
@@ -21,12 +22,22 @@ import {
   type AppKitChain,
   CIRCLE_BLOCKCHAIN,
   type CircleBlockchain,
+  agentMetadataURI,
   createWallet,
   estimateBridgeFee,
   getTokenBalances,
   listWallets,
+  readAgent,
+  registerAgent,
+  sendArcUsdc,
 } from "@astrolabe/circle";
-import { loadExecution, resumeExecution, runExecution } from "@astrolabe/executor";
+import {
+  type ExecutionRecord,
+  loadExecution,
+  recordReputation,
+  resumeExecution,
+  runExecution,
+} from "@astrolabe/executor";
 import {
   FUNDING_CHAINS,
   WALLET_ENV_SUFFIX,
@@ -175,6 +186,85 @@ async function cmdRun(amount: string, from: string, to: string, execute: boolean
   );
   console.log(`  received: ${swapResult.amountOut ?? "?"} ${tokenOut}`);
   console.log(`Transactions:\n${formatEvidence(bridgeResult, swapResult)}`);
+  await rate(record);
+}
+
+/** Rates the agent on Arc for a completed execution, when an identity is set up. */
+async function rate(record: ExecutionRecord): Promise<void> {
+  const agentId = process.env.ERC8004_AGENT_ID;
+  const validatorWalletId = process.env.CIRCLE_WALLET_ID_ARC_VALIDATOR;
+  if (!agentId || !validatorWalletId) return;
+  const rated = await recordReputation({ record, agentId, validatorWalletId, baseDir: REPO_ROOT });
+  if (rated.isErr()) {
+    console.warn(`  (reputation not recorded: ${rated.error.message})`);
+    return;
+  }
+  const tx = rated.value.evidence?.find((e) => e.step === "reputation");
+  console.log(`  reputation:      agent #${agentId} rated on Arc  ${tx?.explorerUrl ?? ""}`);
+}
+
+/**
+ * Gives the agent an ERC-8004 identity on Arc: a validator wallet (which
+ * rates executions; the owner may not rate itself), a little USDC for its
+ * gas, and the agent registered from the Arc wallet with its card.
+ */
+async function cmdRegisterAgent(write: boolean): Promise<void> {
+  requireEnv([...CORE_KEYS, "CIRCLE_WALLET_SET_ID"]);
+  const arc = walletsFromEnv(process.env).ARC_TESTNET;
+  if (!arc) fail("No Arc wallet configured — run setup-wallets");
+  const existing = process.env.ERC8004_AGENT_ID;
+  if (existing) {
+    const agent = await readAgent(existing);
+    if (agent.isErr()) fail(`readAgent: ${agent.error.message}`);
+    console.log(`Agent #${existing} owned by ${agent.value.owner}`);
+    return;
+  }
+  let lines = "";
+
+  let validatorId = process.env.CIRCLE_WALLET_ID_ARC_VALIDATOR;
+  let validatorAddress = process.env.CIRCLE_WALLET_ADDR_ARC_VALIDATOR;
+  if (!validatorId || !validatorAddress) {
+    const created = await createWallet(
+      process.env.CIRCLE_WALLET_SET_ID as string,
+      CIRCLE_BLOCKCHAIN.ARC_TESTNET,
+    );
+    if (created.isErr()) fail(`createWallet validator: ${created.error.message}`);
+    validatorId = created.value.id;
+    validatorAddress = created.value.address;
+    lines += `CIRCLE_WALLET_ID_ARC_VALIDATOR=${validatorId}\nCIRCLE_WALLET_ADDR_ARC_VALIDATOR=${validatorAddress}\n`;
+    console.log(`Validator wallet: ${validatorAddress}`);
+    const funded = await sendArcUsdc({
+      fromWalletId: arc.walletId,
+      toAddress: validatorAddress,
+      amount: "0.1",
+    });
+    if (funded.isErr()) fail(`funding validator: ${funded.error.message}`);
+    console.log(`Sent 0.1 USDC for its gas: ${funded.value}`);
+  }
+
+  const card = agentMetadataURI({
+    name: "Astrolabe",
+    description:
+      "Stablecoin FX agent: converts USDC <-> EURC on Arc, funding from whichever chain is cheapest, with guarded execution.",
+    agentType: "fx-execution",
+    capabilities: ["usdc-eurc-swap", "cctp-v2-bridge", "guarded-execution"],
+    version: "1.0.0",
+  });
+  const registered = await registerAgent({
+    ownerWalletId: arc.walletId,
+    ownerAddress: arc.address,
+    metadataURI: card,
+  });
+  if (registered.isErr()) fail(`register: ${registered.error.message}`);
+  console.log(`Registered agent #${registered.value.agentId}: ${registered.value.txHash}`);
+  lines += `ERC8004_AGENT_ID=${registered.value.agentId}\n`;
+
+  if (write) {
+    appendFileSync(ENV_PATH, `\n${lines}`);
+    console.log("Appended the agent identity to .env.local.");
+  } else {
+    console.log(`Add these to .env.local (or re-run with --write):\n${lines}`);
+  }
 }
 
 async function cmdStatus(id: string | undefined): Promise<void> {
@@ -225,9 +315,11 @@ async function main(): Promise<void> {
       return cmdStatus(arg);
     case "resume":
       return cmdResume(arg);
+    case "register-agent":
+      return cmdRegisterAgent(values.write);
     default:
       fail(
-        "Commands: check | setup-wallets [--write] | run [--amount N --from USDC --to EURC --execute] | status <id> | resume <id>",
+        "Commands: check | setup-wallets [--write] | run [--amount N --from USDC --to EURC --execute] | status <id> | resume <id> | register-agent [--write]",
       );
   }
 }

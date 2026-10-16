@@ -5,6 +5,7 @@ import { CIRCLE_CHAIN_NAMES } from "@astrolabe/chains";
 import { type AppKitChain, estimateBridgeFee, getTokenBalances } from "@astrolabe/circle";
 import {
   loadExecution,
+  recordReputation,
   runBridge,
   runExecution,
   runPreflight,
@@ -55,6 +56,18 @@ const executions = new ExecutionService(
       runExecution(params, { runPreflight, runBridge, runSwap, saveExecution: d.saveExecution }),
     saveExecution,
     loadExecution,
+    onCompleted: async (record) => {
+      const agentId = process.env.ERC8004_AGENT_ID;
+      const validatorWalletId = process.env.CIRCLE_WALLET_ID_ARC_VALIDATOR;
+      if (!agentId || !validatorWalletId) return;
+      const rated = await recordReputation({
+        record,
+        agentId,
+        validatorWalletId,
+        baseDir: REPO_ROOT,
+      });
+      if (rated.isErr()) console.warn(rated.error.message);
+    },
   },
   REPO_ROOT,
 );
@@ -94,6 +107,7 @@ const app = createApp({
   },
   executions,
   wallets,
+  ...(process.env.ERC8004_AGENT_ID ? { agentId: process.env.ERC8004_AGENT_ID } : {}),
   corsOrigin: process.env.WEB_ORIGIN ?? "*",
 });
 

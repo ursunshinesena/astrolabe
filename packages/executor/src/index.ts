@@ -60,3 +60,4 @@ export {
 export { EXECUTOR_STATES, type ExecutorState } from "./states.js";
 export { canTransition, TRANSITIONS, transition } from "./transitions.js";
 export { ARC_GAS_RESERVE_USDC, bridgeAmountFor, fundingAmountFor } from "@astrolabe/pricing";
+export { recordReputation, type ReputationDeps, type ReputationParams } from "./reputation.js";

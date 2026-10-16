@@ -262,6 +262,16 @@ function StatusBar({ config, apiDown }: { config: ApiConfig | null; apiDown: boo
       ) : (
         <span className="rounded-full bg-warn/15 px-3 py-1 text-warn">Quote-only mode</span>
       )}
+      {config?.agentId && (
+        <a
+          href={`https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e/instance/${config.agentId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-full border border-brass/50 px-3 py-1 text-brass hover:bg-brass/10"
+        >
+          Agent #{config.agentId} · ERC-8004 identity on Arc ↗
+        </a>
+      )}
     </div>
   );
 }

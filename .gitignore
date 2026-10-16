@@ -9,11 +9,6 @@ out/
 build/
 coverage/
 
-# Foundry
-packages/contracts/out/
-packages/contracts/cache/
-packages/contracts/broadcast/
-
 # Environment — never commit secrets
 .env
 .env.local

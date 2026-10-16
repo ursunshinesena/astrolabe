@@ -40,6 +40,8 @@ export type ExecutionRecord = {
   /** On-chain transactions, in the order they happened. */
   evidence?: EvidenceRecord[];
   plan?: SwapPlan;
+  /** App Kit's result of a bridge that failed after the burn; input to retryBridge. */
+  bridgeRaw?: unknown;
 };
 
 export function createExecution(now: Date = new Date()): ExecutionRecord {

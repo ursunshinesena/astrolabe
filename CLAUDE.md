@@ -41,7 +41,7 @@ claude mcp add --transport http circle https://api.circle.com/v1/codegen/mcp --s
 | Wallet creation/management | `use-circle-wallets` + `use-developer-controlled-wallets` |
 | Smart contract deploy | `use-smart-contract-platform` skill |
 | Nanopayments / micropayments | `use-gateway` skill |
-| Routing/swap engine | App Kit docs (`docs.arc.network/app-kit`) |
+| Routing/swap engine | App Kit docs (`docs.arc.io/app-kit`) |
 
 **Rule:** Do not write code in an area without reading its skill. Skills contain
 architecture decisions, common mistakes, and correct patterns.
@@ -351,10 +351,10 @@ These are the sources to consult. If unsure about a topic, look here first:
 - **Circle Skills repo:** https://github.com/circlefin/skills
 - **Circle Developer Docs (LLM index):** https://developers.circle.com/llms.txt
 - **Circle MCP Server:** https://api.circle.com/v1/codegen/mcp
-- **Arc Docs (LLM index):** https://docs.arc.network/llms.txt
+- **Arc Docs (LLM index):** https://docs.arc.io/llms.txt
 - **Arc Network:** https://www.arc.network/
 - **Arc Litepaper:** https://www.arc.network/litepaper
-- **Arc MCP Server:** https://docs.arc.network/ai/mcp
+- **Arc MCP Server:** https://docs.arc.io/ai/mcp
 - **Arc Testnet Explorer API:** https://testnet.arcscan.app/api-docs
 - **USDC Contract Addresses:** https://developers.circle.com/stablecoins/usdc-contract-addresses
 - **CCTP Supported Chains:** https://developers.circle.com/cctp/concepts/supported-chains-and-domains

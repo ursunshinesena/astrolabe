@@ -1,5 +1,5 @@
 import type { AppKitChain, BridgeResult, BridgeStep } from "@astrolabe/circle";
-import { bridgeUSDC } from "@astrolabe/circle";
+import { BridgeFailure, bridgeUSDC } from "@astrolabe/circle";
 import { type Result, ResultAsync, err, ok } from "neverthrow";
 import { type BridgeStepName, ExecutorError } from "./errors.js";
 import { type ExecutionRecord, applyTransition, withError } from "./execution.js";
@@ -180,17 +180,15 @@ async function executeBridge(
       });
     };
 
-    const raced = await Promise.race([
-      deps.bridgeUSDC({
-        fromChain: params.fromChain,
-        toChain: params.toChain,
-        fromAddress: params.fromAddress,
-        toAddress: params.toAddress,
-        amount: params.amount,
-        onStep,
-      }),
-      timedOut,
-    ]);
+    const bridging = deps.bridgeUSDC({
+      fromChain: params.fromChain,
+      toChain: params.toChain,
+      fromAddress: params.fromAddress,
+      toAddress: params.toAddress,
+      amount: params.amount,
+      onStep,
+    });
+    const raced = await Promise.race([bridging, timedOut]);
     watchdog.stop();
 
     await queue;
@@ -202,6 +200,16 @@ async function executeBridge(
       current = withError(current, message);
       const saved = await deps.saveExecution(current, params.baseDir);
       if (saved.isErr()) return err(saved.error);
+      // If the transfer later fails outright, keep App Kit's result so resume
+      // can finish it with retryBridge. A late success is persisted by onStep.
+      void bridging.then(async (late) => {
+        if (late.isOk() || !(late.error instanceof BridgeFailure)) return;
+        await queue;
+        await deps.saveExecution(
+          { ...withError(current, late.error.message), bridgeRaw: late.error.raw },
+          params.baseDir,
+        );
+      });
       return err(new ExecutorError(message, "ATTESTATION_TIMEOUT", undefined, "fetchAttestation"));
     }
     const bridgeOutcome = raced;
@@ -236,6 +244,29 @@ async function finalizeFailure(
   cause: unknown,
 ): Promise<Result<RunBridgeResult, ExecutorError>> {
   const failedStep = parseFailedStep(message);
+  if (failedStep === "fetchAttestation" || failedStep === "mint") {
+    // The burn already happened: the USDC is in flight, not safe at rest.
+    // Keep the record where it is, with App Kit's result, so resume can
+    // finish the transfer with retryBridge instead of burning again.
+    const raw = cause instanceof BridgeFailure ? cause.raw : undefined;
+    const inFlight: ExecutionRecord = {
+      ...withError(
+        record,
+        `Bridge stopped at "${failedStep}" after the burn; the USDC is in flight. Resume to finish the transfer.`,
+      ),
+      ...(raw !== undefined ? { bridgeRaw: raw } : {}),
+    };
+    const saved = await deps.saveExecution(inFlight, params.baseDir);
+    if (saved.isErr()) return err(saved.error);
+    return err(
+      new ExecutorError(
+        `Bridge failed at step "${failedStep}": ${message}`,
+        "BRIDGE_FAILED",
+        cause,
+        failedStep,
+      ),
+    );
+  }
   try {
     const failed = applyTransition(record, "failed_funds_safe");
     if (failed.isOk()) {

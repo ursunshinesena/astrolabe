@@ -13,13 +13,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@astrolabe/agent": "workspace:*",
     "@astrolabe/chains": "workspace:*",
     "@astrolabe/circle": "workspace:*",
     "@astrolabe/executor": "workspace:*",
     "@astrolabe/intent-parser": "workspace:*",
     "@astrolabe/pricing": "workspace:*",
-    "@astrolabe/types": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "hono": "^4.7.0",
     "neverthrow": "^8.1.0",

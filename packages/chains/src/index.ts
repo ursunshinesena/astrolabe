@@ -2,7 +2,7 @@ import { http, type Chain, createPublicClient } from "viem";
 import { arbitrumSepolia, baseSepolia, sepolia } from "viem/chains";
 
 // Arc Testnet — USDC is the native gas token (18 decimals for gas, 6 for ERC-20)
-// Source: use-arc skill + https://docs.arc.network
+// Source: use-arc skill + https://docs.arc.io
 const arcTestnet = {
   id: 5042002,
   name: "Arc Testnet",

@@ -170,3 +170,17 @@ Found and fixed on the way:
   (`estimateBridgeFee`: CCTP provider + forwarder fee, ≈0.022 USDC to Arc)
   instead of the fixed 0.05 placeholder, falling back to it if the estimate
   fails.
+
+## Bridge recovery with App Kit (2026-10-16)
+
+A bridge that fails **after the burn** (attestation or mint) no longer ends
+in `failed_funds_safe`: the USDC is in flight, not at rest. The record keeps
+its state, the reason, and App Kit's own result (`bridgeRaw`). `resume` passes
+that result to App Kit `retryBridge`, which continues from the failed phase
+without burning again, then runs the guarded swap. Failures at approve/burn
+still close as `failed_funds_safe` — nothing left the wallet.
+
+| Persisted state | Action |
+|---|---|
+| `burning` / `awaiting_attestation` / `minting` + `bridgeRaw` | `retryBridge`, then swap |
+| `burning` / `awaiting_attestation` without `bridgeRaw` | `RESUME_UNSUPPORTED` (process died mid-transfer) |

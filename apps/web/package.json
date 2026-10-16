@@ -12,10 +12,6 @@
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
-    "@astrolabe/agent": "workspace:*",
-    "@astrolabe/chains": "workspace:*",
-    "@astrolabe/circle": "workspace:*",
-    "@astrolabe/types": "workspace:*",
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
